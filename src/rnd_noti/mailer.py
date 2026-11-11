@@ -7,6 +7,7 @@
 """
 from __future__ import annotations
 
+import re
 import smtplib
 import ssl
 from dataclasses import dataclass
@@ -17,6 +18,9 @@ from typing import Mapping
 
 class MailError(Exception):
     """메시지에는 주소·비밀번호를 넣지 않는다."""
+
+
+_ADDRESS = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
 
 @dataclass(frozen=True)
@@ -37,15 +41,30 @@ class MailSettings:
             port = int(env.get("SMTP_PORT") or 587)
         except ValueError:
             raise MailError("SMTP_PORT는 숫자여야 합니다(예: 587)") from None
+        # Secrets에 붙여넣을 때 끝에 줄바꿈·빈칸이 섞여 들어가는 일이 흔해서 앞뒤 공백은 떼고 쓴다
+        user = env["SMTP_USER"].strip()
+        reply_to = (env.get("MAIL_REPLY_TO") or "").strip()
+        for name, value in (("SMTP_USER", user), ("MAIL_REPLY_TO", reply_to)):
+            if value and not is_address(value):
+                raise MailError(f"{name} 값이 메일 주소 형식이 아닙니다(중간의 줄바꿈·빈칸·오타 확인)")
         return cls(
-            host=env.get("SMTP_HOST") or "smtp.gmail.com", port=port,
-            user=env["SMTP_USER"], password=env["SMTP_PASSWORD"],
-            from_name=env.get("MAIL_FROM_NAME") or "R&D Noti",
-            reply_to=env.get("MAIL_REPLY_TO") or "",
+            host=(env.get("SMTP_HOST") or "").strip() or "smtp.gmail.com", port=port,
+            user=user, password=env["SMTP_PASSWORD"].strip(),
+            from_name=(env.get("MAIL_FROM_NAME") or "").strip() or "R&D Noti",
+            reply_to=reply_to,
         )
 
 
+def is_address(value: str) -> bool:
+    """메일 주소 한 개인지(빈칸·줄바꿈 없음)."""
+    return bool(_ADDRESS.match(value))
+
+
 def build_message(settings: MailSettings, to_addr: str, subject: str, html: str, text: str) -> EmailMessage:
+    to_addr = to_addr.strip()
+    if not is_address(to_addr):
+        # 주소 자체는 메시지에 넣지 않는다(로그에 남으므로)
+        raise MailError("받는 사람 주소가 메일 주소 형식이 아닙니다(중간의 줄바꿈·빈칸·오타 확인)")
     msg = EmailMessage()
     msg["Subject"] = subject
     msg["From"] = formataddr((settings.from_name, settings.user))

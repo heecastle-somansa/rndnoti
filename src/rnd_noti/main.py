@@ -122,7 +122,7 @@ def _safe_name(name: str) -> str:
 # ---------- 운영자 알림 ----------
 
 def send_admin(env: Mapping[str, str], subject: str, html: str, text: str, mailer_factory=Mailer) -> bool:
-    admin = env.get("ADMIN_EMAIL")
+    admin = (env.get("ADMIN_EMAIL") or "").strip()
     if not admin:
         log("ADMIN_EMAIL이 없어 운영자 알림 메일을 보내지 않았습니다")
         return False
@@ -200,7 +200,9 @@ def run_check_sources(cfg: AppConfig, env, today: date, out_dir: Path, *,
                         ok=count["성공"], failed=count["실패"], off=count["꺼짐"])
     out_dir.mkdir(parents=True, exist_ok=True)
     (out_dir / "check_sources.html").write_text(html, encoding="utf-8")
-    send_admin(env, subject, html, table, mailer_factory)
+    if not send_admin(env, subject, html, table, mailer_factory):
+        log("점검 결과 메일을 보내지 못했습니다. 위 표와 Summary 화면에서 결과를 확인하고, 메일 관련 Secrets를 점검하세요")
+        return 1
     return 0
 
 
@@ -314,7 +316,7 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--today", help="기준일 YYYY-MM-DD (테스트용, 기본은 한국 시간 오늘)")
     p.add_argument("--out", default=str(ROOT / "output"))
     args = p.parse_args(argv)
-    env = dict(os.environ)
+    env = {k: v.strip() for k, v in os.environ.items()}   # Secrets 끝에 섞여 든 줄바꿈·빈칸 제거
     mask_in_actions(env)
     today = date.fromisoformat(args.today) if args.today else st.today_kst()
     try:

@@ -191,3 +191,15 @@ def test_parse_amount_and_revision():
 def test_mask():
     assert mask("x?serviceKey=abc%2B&y=1") == "x?serviceKey=***&y=1"
     assert mask("token SECRET here", ["SECRET"]) == "token *** here"
+
+
+def test_403_explains_missing_api_approval():
+    from datetime import date as _d
+    from rnd_noti.config import SourceConfig
+    from rnd_noti.sources.base import SourceError
+    from rnd_noti.sources.g2b_bid import G2BBidAdapter
+    from tests.fakes import FakeResp, fake_http
+    http, _ = fake_http(lambda m, u, kw: FakeResp("Forbidden", 403))
+    cfg = SourceConfig(id="g2b_bid", name="나라장터 입찰공고", group="나라장터", type="api_g2b_bid")
+    with pytest.raises(SourceError, match="입찰공고정보서비스.*승인"):
+        G2BBidAdapter(cfg, {"DATA_GO_KR_KEY": "KEY123"}, http=http).fetch(_d(2026, 11, 2), _d(2026, 11, 9))

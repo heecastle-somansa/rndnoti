@@ -346,3 +346,22 @@ def test_moved_url_is_detected_and_reported(tmp_path):
     assert rc == 0
     text = body(admin_mails()[0])
     assert "[주소 변경] NIPA 사업공고 목록 (nipa)" in text and "https://new.example/list" in text
+
+
+# ---------- Secrets에 줄바꿈·빈칸이 섞인 경우 (실제 첫 실행에서 발생) ----------
+
+def test_secrets_with_trailing_newline_still_work(tmp_path):
+    env = dict(ENV, ADMIN_EMAIL="admin@corp.example\n", SMTP_USER=" sender@gmail.example\n",
+               SMTP_PASSWORD="app-password-123\n")
+    rc = run_check_sources(CFG, env, TODAY, tmp_path, adapter_factory=adapters(), mailer_factory=mailer())
+    assert rc == 0
+    assert [m["To"] for m in sent_messages()] == ["admin@corp.example"]
+    assert "sender@gmail.example" in sent_messages()[0]["From"]
+
+
+def test_broken_admin_address_is_reported_not_crashed(tmp_path, capsys):
+    env = dict(ENV, ADMIN_EMAIL="admin@corp.example\nother@corp.example")
+    rc = run_check_sources(CFG, env, TODAY, tmp_path, adapter_factory=adapters(), mailer_factory=mailer())
+    out = capsys.readouterr().out
+    assert rc == 1 and sent_messages() == []
+    assert "메일 주소 형식이 아닙니다" in out and "admin@corp.example" not in out

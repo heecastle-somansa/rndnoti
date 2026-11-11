@@ -37,6 +37,7 @@ class G2BAdapterBase(SourceAdapter):
     """하위 클래스는 BASE_URL, OPERATIONS, to_notice()를 정한다."""
 
     BASE_URL: str = ""
+    SERVICE_NAME: str = ""                     # 공공데이터포털에서 활용신청하는 API 이름
     OPERATIONS: dict[str, str] = {}            # 업무구분 이름 → 오퍼레이션명
     DEFAULT_OPERATIONS: tuple[str, ...] = ("용역", "물품")
 
@@ -65,12 +66,20 @@ class G2BAdapterBase(SourceAdapter):
             raise SourceError(f"인증키({KEY_NAME})가 Secrets에 등록되지 않았습니다")
         base = str(self.cfg.options.get("base_url") or self.BASE_URL).rstrip("/")
         notices: list[Notice] = []
-        for op in self._operations():
-            for start, end in _split_period(since, until, MAX_DAYS_PER_QUERY):
-                for item in self._iter_items(f"{base}/{op}", start, end):
-                    notice = self.to_notice(item)
-                    if notice is not None:
-                        notices.append(notice)
+        try:
+            for op in self._operations():
+                for start, end in _split_period(since, until, MAX_DAYS_PER_QUERY):
+                    for item in self._iter_items(f"{base}/{op}", start, end):
+                        notice = self.to_notice(item)
+                        if notice is not None:
+                            notices.append(notice)
+        except SourceError as exc:
+            if "403" in str(exc):
+                raise SourceError(
+                    "서버 응답 403: 이 인증키로는 이 API를 쓸 수 없다는 뜻입니다. 공공데이터포털 "
+                    f"[마이페이지 → 활용신청 현황]에서 '{self.SERVICE_NAME}'가 [승인]인지 확인하세요. "
+                    "방금 승인됐다면 반영까지 1~2시간 걸릴 수 있습니다") from None
+            raise
         return notices
 
     def _iter_items(self, url: str, start: date, end: date) -> Iterator[dict[str, Any]]:

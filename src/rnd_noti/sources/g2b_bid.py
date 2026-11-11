@@ -15,6 +15,7 @@ from .registry import register
 
 @register("api_g2b_bid")
 class G2BBidAdapter(G2BAdapterBase):
+    SERVICE_NAME = "조달청_나라장터 입찰공고정보서비스"
     BASE_URL = "https://apis.data.go.kr/1230000/ad/BidPublicInfoService"
     OPERATIONS = {
         "용역": "getBidPblancListInfoServc",

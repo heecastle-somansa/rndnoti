@@ -14,6 +14,7 @@ from .registry import register
 
 @register("api_g2b_prespec")
 class G2BPrespecAdapter(G2BAdapterBase):
+    SERVICE_NAME = "조달청_나라장터 사전규격정보서비스"
     BASE_URL = "https://apis.data.go.kr/1230000/ao/HrcspSsstndrdInfoService"
     OPERATIONS = {
         "용역": "getPublicPrcureThngInfoServc",
