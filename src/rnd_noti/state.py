@@ -2,6 +2,7 @@
 
 - state/last_run.json : 마지막으로 발송에 성공한 날짜
 - state/seen.json     : 이미 보낸 공고 (uid → 처음 보낸 날 + 공고 내용)
+- state/source_health.json : 지금 실패 중인 출처만 (연속 실패 횟수, 못 모은 기간의 시작일)
 
 공고 내용을 함께 저장하는 이유: 이미 보낸 공고 중 마감이 임박한 건을
 다시 수집하지 않고도 리마인드로 보여주기 위해서다(F9).
@@ -21,6 +22,7 @@ KST = timezone(timedelta(hours=9))
 
 FIRST_RUN_DAYS = 7      # 최초 실행 시 수집 기간
 SEEN_KEEP_DAYS = 90     # seen 보관 기간
+CATCH_UP_DAYS = 60      # 실패했던 출처가 복구됐을 때 거슬러 올라가 다시 모으는 최대 기간
 
 
 def today_kst() -> date:
@@ -98,3 +100,35 @@ def prune_seen(seen: dict[str, SeenEntry], today: date) -> dict[str, SeenEntry]:
     cutoff = today - timedelta(days=SEEN_KEEP_DAYS)
     return {uid: e for uid, e in seen.items()
             if e.first_sent >= cutoff or (e.notice.deadline and e.notice.deadline >= today)}
+
+
+# ---------- 출처 건강 기록 ----------
+
+@dataclass
+class SourceHealth:
+    streak: int             # 연속 실패 횟수
+    since: date             # 처음 실패한 실행의 수집 시작일 (이 날부터의 공고를 아직 못 모음)
+    error: str = ""
+
+
+def load_health(path: Path | None = None) -> dict[str, SourceHealth]:
+    path = path or STATE_DIR / "source_health.json"
+    if not path.exists():
+        return {}
+    raw = json.loads(path.read_text(encoding="utf-8"))
+    return {sid: SourceHealth(int(v["streak"]), date.fromisoformat(v["since"]), v.get("error", ""))
+            for sid, v in raw.items()}
+
+
+def save_health(health: dict[str, SourceHealth], path: Path | None = None) -> None:
+    """실패 중인 출처만 저장한다(복구되면 지워짐) → 파일이 커지지 않는다."""
+    _write_json(path or STATE_DIR / "source_health.json",
+                {sid: {"streak": h.streak, "since": h.since.isoformat(), "error": h.error}
+                 for sid, h in health.items()})
+
+
+def catch_up_since(since: date, today: date, prev: SourceHealth | None) -> date:
+    """지난번에 실패한 출처는 그때 못 모은 기간부터 다시 모은다(최대 60일 전까지)."""
+    if prev is None:
+        return since
+    return max(min(since, prev.since), today - timedelta(days=CATCH_UP_DAYS))

@@ -9,7 +9,7 @@
   {% for line in lines %}
   <tr><td style="padding:4px 20px; {{ F }} font-size:13px; line-height:20px; color:#344054;">{{ line }}</td></tr>
   {% endfor %}
-  <tr><td style="padding:12px 20px 16px 20px; {{ F }} font-size:12px; color:#667085;">GitHub 저장소 → Actions 탭에서 실행 기록을 확인하세요. 실행 상태(state/)는 바뀌지 않아 다음 실행에서 같은 기간을 다시 수집합니다.</td></tr>
+  <tr><td style="padding:12px 20px 16px 20px; {{ F }} font-size:12px; color:#667085;">{% if footer %}{{ footer }}{% else %}GitHub 저장소 → Actions 탭에서 실행 기록을 확인하세요. 실행 상태(state/)는 바뀌지 않아 다음 실행에서 같은 기간을 다시 수집합니다.{% endif %}</td></tr>
 </table>
 </td></tr></table>
 </body>

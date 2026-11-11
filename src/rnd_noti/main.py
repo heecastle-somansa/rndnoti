@@ -43,6 +43,8 @@ class SourceResult:
     status: str                      # 성공 | 실패 | 꺼짐
     notices: list[Notice] = field(default_factory=list)
     error: str = ""
+    warnings: list[str] = field(default_factory=list)   # 성공했지만 확인이 필요한 점 (예: 주소 이동)
+    since: date | None = None                            # 이 출처에 실제로 적용한 수집 시작일
 
 
 def log(msg: str = "") -> None:
@@ -68,29 +70,40 @@ def mask_in_actions(env: Mapping[str, str]) -> None:
 # ---------- 수집 ----------
 
 def collect(cfg: AppConfig, env: Mapping[str, str], since: date, until: date,
-            include_disabled: bool = False, adapter_factory: Callable = create_adapter) -> list[SourceResult]:
+            include_disabled: bool = False, adapter_factory: Callable = create_adapter,
+            health: Mapping[str, st.SourceHealth] | None = None) -> list[SourceResult]:
     results = []
+    health = health or {}
     secrets = _secrets(env)
     for src in cfg.sources:
         if not src.enabled:
             if include_disabled:
                 results.append(SourceResult(src, "꺼짐", error=src.note))
             continue
+        # 지난번에 실패했던 출처는 그때 못 모은 기간부터 다시 모은다(이미 보낸 공고는 seen이 걸러 줌)
+        src_since = st.catch_up_since(since, until, health.get(src.id))
+        adapter = None
         try:
-            raw = adapter_factory(src, env).fetch(since, until)
+            adapter = adapter_factory(src, env)
+            raw = adapter.fetch(src_since, until)
             notices = [normalize(n, src, cfg.groups) for n in raw if passes_title_filter(n.title, src.title_filter)]
-            results.append(SourceResult(src, "성공", notices))
+            result = SourceResult(src, "성공", notices)
         except SourceError as exc:
-            results.append(SourceResult(src, "실패", error=mask(str(exc), secrets)))
+            result = SourceResult(src, "실패", error=mask(str(exc), secrets))
         except Exception as exc:                              # 예상 못 한 오류도 그 출처만 실패 처리
-            results.append(SourceResult(src, "실패", error=mask(f"{type(exc).__name__}: {exc}", secrets)[:300]))
+            result = SourceResult(src, "실패", error=mask(f"{type(exc).__name__}: {exc}", secrets)[:300])
+        result.since = src_since
+        moved = getattr(getattr(adapter, "http", None), "moved", None) or {}
+        result.warnings = [mask(f"주소가 옮겨졌습니다: {old} → {new} (sources.yaml의 url을 새 주소로 바꿔 주세요)", secrets)
+                           for old, new in moved.items()]
+        results.append(result)
     return results
 
 
 def source_table(results: list[SourceResult]) -> str:
     lines = ["| 출처 | id | 결과 | 건수 | 비고 |", "| --- | --- | --- | --- | --- |"]
     for r in results:
-        note = (r.error or r.source.note).replace("|", "/")
+        note = " / ".join([r.error or r.source.note, *r.warnings]).strip(" /").replace("|", "/")
         lines.append(f"| {r.source.name} | {r.source.id} | {r.status} | {len(r.notices)} | {note} |")
     return "\n".join(lines)
 
@@ -124,10 +137,42 @@ def send_admin(env: Mapping[str, str], subject: str, html: str, text: str, maile
         return False
 
 
-def admin_error(env, title: str, lines: list[str], mailer_factory=Mailer) -> None:
-    subject = f"[R&D Noti] 오류: {title}"
-    html = render_named("admin_error.html", subject=subject, title=title, lines=lines)
+def admin_error(env, title: str, lines: list[str], mailer_factory=Mailer, *,
+                subject: str = "", footer: str = "") -> None:
+    subject = subject or f"[R&D Noti] 오류: {title}"
+    html = render_named("admin_error.html", subject=subject, title=title, lines=lines, footer=footer)
     send_admin(env, subject, html, "\n".join([title, *lines]), mailer_factory)
+
+
+# ---------- 출처 추적 (실패·주소 이동) ----------
+
+def next_health(results: list[SourceResult], prev: Mapping[str, st.SourceHealth]) -> dict[str, st.SourceHealth]:
+    """이번 실행 결과로 '실패 중인 출처' 기록을 새로 만든다. 성공한 출처는 기록에서 빠진다."""
+    out = {}
+    for r in results:
+        if r.status != "실패":
+            continue
+        old = prev.get(r.source.id)
+        out[r.source.id] = st.SourceHealth(streak=(old.streak if old else 0) + 1,
+                                           since=old.since if old else r.since, error=r.error)
+    return out
+
+
+def source_alert_lines(results: list[SourceResult], health: Mapping[str, st.SourceHealth]) -> list[str]:
+    """운영자에게 알릴 출처 문제(실패·주소 이동). 없으면 빈 목록."""
+    lines = []
+    for r in results:
+        h = health.get(r.source.id)
+        if r.status == "실패" and h:
+            lines.append(f"[실패 {h.streak}회 연속] {r.source.name} ({r.source.id}) — "
+                         f"{h.since}부터의 공고를 못 모았습니다. 사유: {r.error}")
+        lines += [f"[주소 변경] {r.source.name} ({r.source.id}) — {w}" for w in r.warnings]
+    return lines
+
+
+ALERT_FOOTER = ("구독자 메일은 정상 발송했습니다. 실패한 출처는 복구되면 못 모은 기간(최대 60일)을 자동으로 다시 모읍니다. "
+                "고치는 법: config/sources.yaml에서 해당 출처의 url을 새 주소로 바꾸거나, 더 쓰지 않을 출처는 "
+                "enabled: false로 끕니다. 주소를 바꿔도 실패하면 화면 구조가 바뀐 것이니 Claude Code에 수정을 요청하세요.")
 
 
 # ---------- 모드별 실행 ----------
@@ -142,7 +187,10 @@ def run_check_sources(cfg: AppConfig, env, today: date, out_dir: Path, *,
     color = {"성공": "#039855", "실패": "#d92d20", "꺼짐": "#667085"}
     rows = [{
         "id": r.source.id, "name": r.source.name, "status": r.status, "color": color[r.status],
-        "count": len(r.notices), "reason": r.error,
+        "count": len(r.notices),
+        "reason": " / ".join([r.error, *r.warnings] + (
+            [f"최근 {CHECK_DAYS}일간 새 글이 없습니다. 게시판이 다른 주소로 옮겨졌는지 확인해 보세요"]
+            if r.status == "성공" and not r.notices else [])).strip(" /"),
         "recent": [f"{n.posted_at or ''} {n.title}" for n in
                    sorted(r.notices, key=lambda n: n.posted_at or date.min, reverse=True)[:3]],
     } for r in results]
@@ -181,7 +229,12 @@ def run_weekly(cfg: AppConfig, env, today: date, out_dir: Path, state_dir: Path,
             admin_error(env, "구독자 목록 오류", [str(exc)], mailer_factory)
         return 1
 
-    results = collect(cfg, env, since, until, adapter_factory=adapter_factory)
+    prev_health = st.load_health(state_dir / "source_health.json")
+    results = collect(cfg, env, since, until, adapter_factory=adapter_factory, health=prev_health)
+    health = next_health(results, prev_health)
+    alerts = source_alert_lines(results, health)
+    for line in alerts:
+        log(f"출처 확인 필요: {line}")
     table = source_table(results)
     log(table)
     write_summary(env, f"## 출처별 수집 결과 ({since} ~ {until})\n\n" + table)
@@ -245,6 +298,10 @@ def run_weekly(cfg: AppConfig, env, today: date, out_dir: Path, state_dir: Path,
     new_seen = st.prune_seen(update_seen(seen, sent_items, today), today)
     st.save_seen(new_seen, state_dir / "seen.json")
     st.save_last_run(today, state_dir / "last_run.json")
+    st.save_health(health, state_dir / "source_health.json")
+    if alerts:
+        admin_error(env, f"출처 확인 필요 {len(alerts)}건", alerts, mailer_factory,
+                    subject=f"[R&D Noti] 출처 확인 필요 {len(alerts)}건", footer=ALERT_FOOTER)
     log(f"상태 갱신 완료: seen {len(new_seen)}건, 마지막 성공 실행일 {today}")
     return 0
 

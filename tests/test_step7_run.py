@@ -270,3 +270,79 @@ def test_validate_mode_checks_real_config_only(capsys):
     from rnd_noti import main as m
     assert m.main(["--mode", "validate"]) == 0
     assert "설정 파일 정상" in capsys.readouterr().out
+
+
+# ---------- 출처 추적: 실패 알림·연속 실패·복구 후 보충 수집·주소 이동 ----------
+
+def admin_mails():
+    return [m for m in sent_messages() if m["To"] == "admin@corp.example"]
+
+
+def test_source_failure_alerts_admin_and_tracks_streak(tmp_path):
+    assert run(tmp_path, fail={"kisa"}) == 0
+    assert len(admin_mails()) == 1 and "출처 확인 필요 1건" in admin_mails()[0]["Subject"]
+    text = body(admin_mails()[0])
+    assert "[실패 1회 연속] KISA 공지사항 (kisa)" in text and "2026-11-02부터" in text
+    assert "KEY123" not in text
+    health = st.load_health(tmp_path / "state" / "source_health.json")
+    assert health["kisa"].streak == 1 and health["kisa"].since == date(2026, 11, 2)
+
+    # 다음 주에도 실패 → 2회 연속, 못 모은 시작일은 그대로
+    assert run(tmp_path, fail={"kisa"}, today=date(2026, 11, 16)) == 0
+    health = st.load_health(tmp_path / "state" / "source_health.json")
+    assert health["kisa"].streak == 2 and health["kisa"].since == date(2026, 11, 2)
+    assert "[실패 2회 연속]" in body(admin_mails()[-1])
+
+
+def test_recovered_source_catches_up_missed_period(tmp_path):
+    assert run(tmp_path, fail={"kisa"}) == 0                      # 11/9: kisa 실패
+    FakeSMTP.instances = []
+    asked = {}
+
+    class Spy:
+        def __init__(self, src):
+            self.src = src
+
+        def fetch(self, since, until):
+            asked[self.src.id] = since
+            return [replace(n, source_name=self.src.name, agency_group=n.agency_group or self.src.group)
+                    for n in DATA.get(self.src.id, [])]
+    rc = run_weekly(CFG, ENV, date(2026, 11, 16), tmp_path / "out", tmp_path / "state", dry_run=False,
+                    adapter_factory=lambda src, env: Spy(src), mailer_factory=mailer())
+    assert rc == 0
+    assert asked["kisa"] == date(2026, 11, 2)                     # 실패했던 주부터 다시
+    assert asked["nipa"] == date(2026, 11, 10)                    # 다른 출처는 평소대로
+    assert st.load_health(tmp_path / "state" / "source_health.json") == {}   # 복구되면 기록에서 빠짐
+    assert not admin_mails()
+
+
+def test_no_alert_mail_when_everything_is_fine(tmp_path):
+    assert run(tmp_path) == 0
+    assert not admin_mails()
+
+
+def test_moved_url_is_detected_and_reported(tmp_path):
+    from rnd_noti.sources.http import moved_to
+
+    class R:
+        def __init__(self, url, codes):
+            self.url, self.history = url, [type("H", (), {"status_code": c})() for c in codes]
+    old = "https://cont.kisa.or.kr/advertise/list?page=1"
+    assert moved_to(old, R("https://www.kisa.or.kr/401", [302])) == "https://www.kisa.or.kr/401"      # 도메인 변경
+    assert moved_to("https://a.kr/old/list", R("https://a.kr/new/list", [301])) == "https://a.kr/new/list"  # 영구 이동
+    assert moved_to("http://a.kr/list", R("https://www.a.kr/list", [301])) is None                    # https·www만 다름
+    assert moved_to("https://a.kr/list", R("https://a.kr/login", [302])) is None                      # 임시 이동은 무시
+    assert moved_to("https://a.kr/list", R("https://a.kr/list", [])) is None
+
+    class Moved:
+        def __init__(self, src):
+            self.http = type("H", (), {"moved": {"https://old.example/list": "https://new.example/list"}
+                                       if src.id == "nipa" else {}})()
+
+        def fetch(self, since, until):
+            return []
+    rc = run_weekly(CFG, ENV, TODAY, tmp_path / "out", tmp_path / "state", dry_run=False,
+                    adapter_factory=lambda src, env: Moved(src), mailer_factory=mailer())
+    assert rc == 0
+    text = body(admin_mails()[0])
+    assert "[주소 변경] NIPA 사업공고 목록 (nipa)" in text and "https://new.example/list" in text
