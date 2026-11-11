@@ -1,0 +1,6 @@
+{"response": {"header": {"resultCode": "00", "resultMsg": "정상"},
+ "body": {"pageNo": 2, "numOfRows": 100, "totalCount": 103, "items": [
+  {"bidNtceNo": "R26BK00000104", "bidNtceOrd": "000", "ntceKindNm": "일반",
+   "bidNtceNm": "출입통제 시스템 구축", "dminsttNm": "□□대학교", "asignBdgtAmt": "0",
+   "cntrctCnclsMthdNm": "", "bidNtceDt": "20261111", "bidClseDt": ""}
+ ]}}}

@@ -8,10 +8,14 @@
 # [현재 상태] URL과 selectors는 비어 있습니다. 3단계(북마크 반영)와 4단계(출처 점검)에서 채웁니다.
 #            type도 4단계에서 출처별로 실제 확인한 뒤 확정합니다.
 
+# 나라장터: options.operations = 조회할 업무구분 (용역 | 물품 | 공사 | 외자)
+#           options.base_url  = API 주소가 바뀌었을 때만 적습니다 (비우면 기본 주소)
 - {id: g2b_bid,     name: 나라장터 입찰공고, group: 나라장터, ministry: 나라장터, enabled: true,
-   type: api_g2b_bid, url: "", notice_type: 본공고, title_filter: []}
+   type: api_g2b_bid, url: "", notice_type: 본공고, title_filter: [],
+   options: {operations: [용역, 물품]}}
 - {id: g2b_prespec, name: 나라장터 사전규격, group: 나라장터, ministry: 나라장터, enabled: true,
-   type: api_g2b_prespec, url: "", notice_type: 사전규격/수요조사, title_filter: []}
+   type: api_g2b_prespec, url: "", notice_type: 사전규격/수요조사, title_filter: [],
+   options: {operations: [용역, 물품]}}
 
 - {id: iris,    name: IRIS 통합 사업공고,   group: 통합포털, ministry: "", enabled: true,
    type: generic_board, url: "", notice_type: 본공고, title_filter: [], selectors: {}}

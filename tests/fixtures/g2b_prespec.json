@@ -1,0 +1,9 @@
+{"response": {"header": {"resultCode": "00", "resultMsg": "정상"},
+ "body": {"pageNo": 1, "numOfRows": 100, "totalCount": 2, "items": {"item": [
+  {"bfSpecRgstNo": "1112223", "prdctClsfcNoNm": "2027년 VDI 고도화 사업",
+   "orderInsttNm": "조달청", "rlDminsttNm": "○○연구원", "asignBdgtAmt": "450000000",
+   "rcptDt": "2026-11-10 14:00:00", "opninRgstClseDt": "2026-11-16 18:00:00"},
+  {"bfSpecRgstNo": "1112224", "prdctClsfcNoNm": "[재공고] 개인정보 검출 솔루션 도입",
+   "orderInsttNm": "◇◇군청", "asignBdgtAmt": "",
+   "rcptDt": "2026-11-11 09:00:00", "opninRgstClseDt": ""}
+ ]}}}}

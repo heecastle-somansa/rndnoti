@@ -1,0 +1,137 @@
+"""나라장터(조달청 공공데이터포털 API) 공통 처리.
+
+- 업무구분(용역·물품·공사·외자)별 오퍼레이션을 차례로 호출
+- 수집 기간을 7일 단위로 나눠 조회 (API의 조회 기간 제한 대비)
+- 모든 페이지 순회 (F2)
+- 공공데이터포털 오류(인증키 미등록, 트래픽 초과 등)를 한국어로 바꿔 알림
+
+[주의] 엔드포인트·필드명은 공공데이터포털 문서 기준이며 실제 호출은 아직 확인 전이다.
+       주소가 바뀌면 sources.yaml의 options.base_url로 코드 수정 없이 바꿀 수 있다.
+"""
+from __future__ import annotations
+
+import json
+import re
+from datetime import date, timedelta
+from typing import Any, Iterator, Mapping
+
+from ..config import SourceConfig
+from ..models import Notice
+from .base import SourceAdapter, SourceError
+from .http import HttpClient
+
+KEY_NAME = "DATA_GO_KR_KEY"
+PAGE_SIZE = 100
+MAX_DAYS_PER_QUERY = 7
+
+_ERROR_HINTS = {
+    "SERVICE_KEY_IS_NOT_REGISTERED_ERROR": "인증키가 등록되지 않았거나 활용신청 승인 전입니다",
+    "SERVICE_ACCESS_DENIED_ERROR": "이 API에 대한 활용신청이 없거나 접근이 거부됐습니다",
+    "LIMITED_NUMBER_OF_SERVICE_REQUESTS_EXCEEDS_ERROR": "하루 호출 한도를 넘었습니다",
+    "DEADLINE_HAS_EXPIRED_ERROR": "활용 기간이 만료됐습니다",
+    "UNREGISTERED_IP_ERROR": "등록되지 않은 IP에서 호출했습니다(해외 IP 차단 가능성)",
+}
+
+
+class G2BAdapterBase(SourceAdapter):
+    """하위 클래스는 BASE_URL, OPERATIONS, to_notice()를 정한다."""
+
+    BASE_URL: str = ""
+    OPERATIONS: dict[str, str] = {}            # 업무구분 이름 → 오퍼레이션명
+    DEFAULT_OPERATIONS: tuple[str, ...] = ("용역", "물품")
+
+    def __init__(self, cfg: SourceConfig, secrets: Mapping[str, str] | None = None,
+                 http: HttpClient | None = None) -> None:
+        super().__init__(cfg, secrets)
+        self.key = self.secrets.get(KEY_NAME, "")
+        self.http = http or HttpClient(secrets=[self.key])
+
+    # ----- 하위 클래스 구현 -----
+    def to_notice(self, item: dict[str, Any]) -> Notice | None:
+        raise NotImplementedError
+
+    # ----- 공통 흐름 -----
+    def _operations(self) -> list[str]:
+        names = self.cfg.options.get("operations") or list(self.DEFAULT_OPERATIONS)
+        unknown = [n for n in names if n not in self.OPERATIONS]
+        if unknown:
+            raise SourceError(
+                f"options.operations에 알 수 없는 업무구분: {', '.join(unknown)} "
+                f"(가능: {', '.join(self.OPERATIONS)})")
+        return [self.OPERATIONS[n] for n in names]
+
+    def fetch(self, since: date, until: date) -> list[Notice]:
+        if not self.key:
+            raise SourceError(f"인증키({KEY_NAME})가 Secrets에 등록되지 않았습니다")
+        base = str(self.cfg.options.get("base_url") or self.BASE_URL).rstrip("/")
+        notices: list[Notice] = []
+        for op in self._operations():
+            for start, end in _split_period(since, until, MAX_DAYS_PER_QUERY):
+                for item in self._iter_items(f"{base}/{op}", start, end):
+                    notice = self.to_notice(item)
+                    if notice is not None:
+                        notices.append(notice)
+        return notices
+
+    def _iter_items(self, url: str, start: date, end: date) -> Iterator[dict[str, Any]]:
+        page = 1
+        while True:
+            params = {
+                "serviceKey": self.key,
+                "pageNo": page,
+                "numOfRows": PAGE_SIZE,
+                "inqryDiv": 1,                                  # 1 = 등록(게시)일시 기준
+                "inqryBgnDt": start.strftime("%Y%m%d") + "0000",
+                "inqryEndDt": end.strftime("%Y%m%d") + "2359",
+                "type": "json",
+            }
+            resp = self.http.get(url, params)
+            items, total = parse_response(resp.text)
+            yield from items
+            if not items or page * PAGE_SIZE >= total:
+                return
+            page += 1
+
+
+def _split_period(since: date, until: date, days: int) -> Iterator[tuple[date, date]]:
+    start = since
+    while start <= until:
+        end = min(start + timedelta(days=days - 1), until)
+        yield start, end
+        start = end + timedelta(days=1)
+
+
+def parse_response(text: str) -> tuple[list[dict[str, Any]], int]:
+    """공공데이터포털 응답 → (항목 목록, 전체 건수). 오류 응답이면 SourceError."""
+    try:
+        data = json.loads(text)
+    except ValueError:
+        # 인증 오류 등은 type=json이어도 XML로 오는 경우가 있다
+        code = _xml_value(text, "returnAuthMsg") or _xml_value(text, "resultMsg") or _xml_value(text, "errMsg")
+        raise SourceError(_explain(code or "응답을 해석할 수 없습니다(JSON 아님)")) from None
+
+    resp = data.get("response", data)
+    header = resp.get("header", {}) or {}
+    code = str(header.get("resultCode", "00"))
+    if code not in ("00", "0", "000"):
+        raise SourceError(_explain(str(header.get("resultMsg") or code)))
+    body = resp.get("body", {}) or {}
+    items = body.get("items") or []
+    if isinstance(items, dict):
+        items = items.get("item") or []
+    if isinstance(items, dict):
+        items = [items]
+    total = int(body.get("totalCount") or 0)
+    return list(items), total
+
+
+def _xml_value(text: str, tag: str) -> str:
+    m = re.search(rf"<{tag}>\s*([^<]+?)\s*</{tag}>", text)
+    return m.group(1) if m else ""
+
+
+def _explain(code: str) -> str:
+    for key, hint in _ERROR_HINTS.items():
+        if key in code:
+            return f"공공데이터포털 오류: {hint} ({key})"
+    return f"공공데이터포털 오류: {code[:200]}"

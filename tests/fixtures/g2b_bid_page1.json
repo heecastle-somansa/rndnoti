@@ -1,0 +1,17 @@
+{"response": {"header": {"resultCode": "00", "resultMsg": "정상"},
+ "body": {"pageNo": 1, "numOfRows": 100, "totalCount": 103, "items": [
+  {"bidNtceNo": "R26BK00000101", "bidNtceOrd": "000", "ntceKindNm": "일반",
+   "bidNtceNm": "2027년 업무망 논리적 망분리 고도화 사업", "ntceInsttNm": "조달청 서울지방조달청",
+   "dminsttNm": "○○공단", "asignBdgtAmt": "1250000000", "presmptPrce": "1136363636",
+   "cntrctCnclsMthdNm": "협상에 의한 계약", "bidNtceDt": "2026-11-09 10:00:00",
+   "bidClseDt": "2026-11-20 10:00:00",
+   "bidNtceDtlUrl": "https://www.g2b.go.kr/link/PNPE027_01/single/?bidPbancNo=R26BK00000101&bidPbancOrd=000"},
+  {"bidNtceNo": "R26BK00000102", "bidNtceOrd": "001", "ntceKindNm": "변경공고",
+   "bidNtceNm": "[정정] 차세대 EDR 구축 용역", "dminsttNm": "△△시청",
+   "asignBdgtAmt": "", "presmptPrce": "85000000", "cntrctCnclsMthdNm": "제한경쟁",
+   "bidNtceDt": "2026-11-10 09:30", "bidClseDt": "2026-11-14 18:00",
+   "bidNtceDtlUrl": "https://www.g2b.go.kr/link/x?bidPbancNo=R26BK00000102"},
+  {"bidNtceNo": "R26BK00000103", "bidNtceOrd": "000", "ntceKindNm": "취소공고",
+   "bidNtceNm": "취소된 클라우드 사업", "bidNtceDt": "2026-11-10 09:30"},
+  {"bidNtceNo": "", "bidNtceNm": "번호 없는 행"}
+ ]}}}
