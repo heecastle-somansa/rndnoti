@@ -1,358 +1,83 @@
 # R&D Noti
 
-나라장터 입찰공고와 정부 R&D 과제 공고를 **매주 월요일 08:00(한국 시간)** 에 자동으로 모아, 구독자가 고른 **분류/키워드**에 맞는 공고만 Outlook 메일로 보내는 도구입니다.
+나라장터 입찰공고와 정부 R&D 과제 공고를 **매주 월요일 08:00**에 자동으로 모아, 구독자가 고른 **분류/키워드**에 맞는 공고만 메일로 보내 줍니다.
 
-- 서버가 없습니다. GitHub Actions가 매주 한 번 실행되고, 실행 기록(`state/`)을 저장소에 다시 저장합니다.
-- 수집은 한 번만 하고, 구독자마다 맞는 공고를 골라 **한 사람에게 한 통씩** 따로 보냅니다. 수신자끼리는 서로의 주소를 볼 수 없습니다.
-- 출처·키워드·구독자를 바꿀 때는 **설정 파일(`config/*.yaml`)이나 GitHub Secrets만** 고치면 됩니다.
+- 서버 없이 GitHub Actions로 돌아갑니다.
+- 구독자마다 한 통씩 따로 보내므로 서로의 주소가 보이지 않습니다.
+- 출처·키워드·구독자는 설정 파일과 GitHub Secrets만 고치면 바뀝니다. 코드는 건드리지 않습니다.
 
-> 1단계 범위는 메일 리포트까지입니다. AI 요약, 결과 웹페이지, 메신저 알림, 첨부파일 분석은 이후 단계에서 다룹니다. 공고 데이터의 `summary` 필드와 메일 카드 3행 자리는 미리 비워 두었습니다.
+화면별 클릭 순서와 자세한 설명은 **[상세 가이드(GUIDE.md)](GUIDE.md)** 에 있습니다.
 
----
+## 처음 시작하기
 
-## 목차
+**1. 비밀값 준비** ([상세](GUIDE.md#1-처음-한-번만-하는-설정))
 
-1. [처음 한 번만 하는 설정](#1-처음-한-번만-하는-설정)
-2. [실행하기 (자동 · 수동)](#2-실행하기)
-3. [운영 가이드: 바꾸고 싶을 때](#3-운영-가이드-바꾸고-싶을-때)
-4. [수집 출처 21곳 현황](#4-수집-출처-21곳-현황)
-5. [메일 받는 분께 안내할 것](#5-메일-받는-분께-안내할-것)
-6. [문제가 생겼을 때](#6-문제가-생겼을-때)
-7. [구조 요약 (개발자용)](#7-구조-요약-개발자용)
+- [공공데이터포털](https://www.data.go.kr)에서 `조달청_나라장터 입찰공고정보서비스`와 `조달청_나라장터 사전규격정보서비스`를 활용신청하고 **일반 인증키(Decoding)** 를 복사합니다.
+- 발송용 Gmail에서 2단계 인증을 켜고 [앱 비밀번호](https://myaccount.google.com/apppasswords) 16자리를 만듭니다.
 
----
+**2. GitHub Secrets 등록** — 저장소 **[Settings] → [Secrets and variables] → [Actions] → [New repository secret]**
 
-## 1. 처음 한 번만 하는 설정
-
-### 1-1. 공공데이터포털 인증키 받기 (나라장터 수집용)
-
-1. [공공데이터포털(data.go.kr)](https://www.data.go.kr)에 로그인합니다.
-2. 위쪽 검색창에서 **`조달청_나라장터 입찰공고정보서비스`** 를 검색하고, 결과에서 **오픈 API** 항목을 엽니다.
-3. 오른쪽의 **[활용신청]** 버튼을 누릅니다. 활용목적은 "기타 - 사내 입찰공고 모니터링"처럼 짧게 적고 **[활용신청]** 을 누릅니다.
-4. 2~3번을 **`조달청_나라장터 사전규격정보서비스`** 로 한 번 더 합니다.
-5. 오른쪽 위 **[마이페이지] → [데이터활용] → [Open API] → [활용신청 현황]** 에서 승인됐는지 확인합니다. 보통 바로 또는 1~2시간 안에 승인됩니다.
-6. 같은 화면의 신청 건을 눌러 **일반 인증키(Decoding)** 값을 복사합니다. 이 값을 1-3에서 `DATA_GO_KR_KEY`로 등록합니다.
-
-> 인증키는 승인 후 실제로 쓸 수 있을 때까지 최대 1시간쯤 걸릴 수 있습니다.
-
-### 1-2. Gmail 앱 비밀번호 받기 (메일 발송용)
-
-발송용 Gmail 계정은 따로 하나 만드는 것을 권장합니다. 예: `rndnoti.내이름@gmail.com`
-
-1. 발송용 Gmail로 로그인한 뒤 [Google 계정 → 보안](https://myaccount.google.com/security)으로 갑니다.
-2. **2단계 인증**이 꺼져 있으면 먼저 켭니다. 휴대폰 문자 인증으로 켜면 됩니다.
-3. [앱 비밀번호 화면](https://myaccount.google.com/apppasswords)으로 갑니다.
-4. 앱 이름에 `R&D Noti`를 입력하고 **[만들기]** 를 누릅니다.
-5. 화면에 나온 **16자리 비밀번호**를 복사합니다. 이 화면을 닫으면 다시 볼 수 없으니, 1-3에서 바로 `SMTP_PASSWORD`로 등록합니다.
-
-### 1-3. GitHub Secrets 등록 (비밀값 보관함)
-
-인증키·메일 계정·구독자 주소는 코드나 파일에 절대 적지 않고, GitHub의 비밀값 보관함(Secrets)에만 넣습니다.
-
-1. GitHub에서 이 저장소를 엽니다.
-2. 위쪽 메뉴 **[Settings]** → 왼쪽 메뉴 **[Secrets and variables] → [Actions]** 를 누릅니다.
-3. 초록색 **[New repository secret]** 버튼을 누릅니다.
-4. **Name**에 아래 표의 이름을, **Secret**에 값을 붙여넣고 **[Add secret]** 을 누릅니다.
-5. 표의 항목마다 3~4번을 반복합니다.
-
-| Name (그대로 입력) | 값 | 필수 |
-| --- | --- | --- |
-| `DATA_GO_KR_KEY` | 1-1의 일반 인증키(Decoding) | 필수 |
-| `SMTP_USER` | 발송용 Gmail 주소 | 필수 |
-| `SMTP_PASSWORD` | 1-2의 16자리 앱 비밀번호 (띄어쓰기 없이) | 필수 |
-| `SUBSCRIBERS_JSON` | 구독자 목록 (아래 형식) | 필수 |
-| `ADMIN_EMAIL` | 오류·출처 점검 결과를 받을 운영자 메일 | 필수 |
-| `SMTP_HOST` | 발송 서버. 비우면 `smtp.gmail.com` | 선택 |
-| `SMTP_PORT` | 발송 포트. 비우면 `587` | 선택 |
-| `MAIL_FROM_NAME` | 보낸사람 표시 이름. 비우면 `R&D Noti` | 선택 |
-| `MAIL_REPLY_TO` | 회신 받을 주소. 비우면 발송 계정으로 회신 | 선택 |
-
-**`SUBSCRIBERS_JSON` 형식** (주소만 바꿔서 통째로 붙여넣기):
+| Name | 값 |
+| --- | --- |
+| `DATA_GO_KR_KEY` | 공공데이터포털 일반 인증키(Decoding) |
+| `SMTP_USER` | 발송용 Gmail 주소 |
+| `SMTP_PASSWORD` | Gmail 앱 비밀번호 16자리 (띄어쓰기 없이) |
+| `ADMIN_EMAIL` | 오류·점검 결과를 받을 운영자 메일 |
+| `SUBSCRIBERS_JSON` | 구독자 목록 (아래 형식) |
 
 ```json
 [
   {"name": "본인", "email": "me@example.com", "active": true,
-   "categories": ["망분리·VDI", "클라우드·가상화", "DLP·정보유출", "엔드포인트", "보안 일반"]},
+   "categories": ["망분리·VDI", "보안 일반"]},
   {"name": "지인", "email": "friend@example.com", "active": true,
-   "categories": ["생체인증·출입보안"],
-   "exclude_sources": ["kisia"]}
+   "categories": ["생체인증·출입보안"]}
 ]
 ```
 
-- `name`: 로그에는 메일 주소 대신 이 이름만 남습니다. 사람마다 다르게 적습니다.
-- `categories`: [`config/keywords.yaml`](config/keywords.yaml)에 있는 분류 이름을 **글자 그대로** 적습니다(가운뎃점 `·` 포함).
-- `active: false`: 목록에서 지우지 않고 발송만 멈춥니다.
-- `sources` / `exclude_sources`(선택): 받을 출처만 고르거나 뺍니다. 값은 [4장](#4-수집-출처-21곳-현황) 표의 `id`입니다.
+`categories`에는 [config/keywords.yaml](config/keywords.yaml)의 분류 이름을 글자 그대로 적습니다. Secrets는 저장 후 다시 볼 수 없으니 **구독자 목록 원본은 PC에 따로 보관**하세요.
 
-> 💡 GitHub Secrets는 등록한 뒤에는 값을 다시 볼 수 없고 **덮어쓰기만** 됩니다. 구독자 목록 원본은 PC 메모장 같은 곳에 따로 보관해 두세요.
+**3. 시험 실행** — 저장소 **[Actions] → R&D Noti weekly report → [Run workflow]** 에서 모드를 골라 아래 순서로 실행합니다.
 
-### 1-4. 첫 실행 순서 (권장)
-
-1. **출처 점검** 모드로 실행 → `ADMIN_EMAIL`로 온 메일에서 21곳 결과를 확인합니다.
-2. **미리보기(dry-run)** 모드로 실행 → 결과 파일을 내려받아 메일 모양을 확인합니다.
-3. **정상(normal)** 모드로 한 번 실행 → 실제로 메일이 오는지 확인합니다.
-4. 이후에는 매주 월요일 08:00에 자동으로 실행됩니다.
-
-실행 방법은 바로 아래 2장에 있습니다.
-
----
-
-## 2. 실행하기
-
-### 자동 실행
-
-매주 **월요일 08:00(한국 시간)** 에 정상 모드로 실행됩니다. 따로 할 일은 없습니다.
-GitHub 서버 사정으로 몇 분에서 수십 분 늦게 시작될 수 있습니다.
-
-### 수동 실행 ("Run workflow" 버튼)
-
-1. 저장소 위쪽 메뉴 **[Actions]** 를 누릅니다.
-2. 왼쪽 목록에서 **R&D Noti weekly report** 를 누릅니다.
-3. 오른쪽의 **[Run workflow ▾]** 버튼을 누릅니다.
-4. **실행 모드**를 고르고 초록색 **[Run workflow]** 를 누릅니다.
-
-| 실행 모드 | 하는 일 | 메일 | 상태(`state/`) 갱신 |
-| --- | --- | --- | --- |
-| `dry-run` (기본) | 구독자별 메일을 HTML 파일로만 저장 | 안 보냄 | 안 함 |
-| `normal` | 실제 발송 | 구독자별 1통씩 | 발송이 **모두 성공했을 때만** |
-| `check_sources` | 출처별 수집 성공/실패와 최근 공고 3건 점검 | 운영자에게만 | 안 함 |
-
-### 결과 파일 내려받기 (dry-run · check_sources)
-
-1. [Actions] 탭에서 방금 실행한 항목(맨 위)을 누릅니다.
-2. 화면 아래 **Artifacts** 칸의 `rnd-noti-번호` 를 눌러 내려받습니다(zip).
-3. 압축을 풀고 `.html` 파일을 더블클릭하면 브라우저에서 메일 모양을 볼 수 있습니다. 결과 파일은 14일 동안 보관됩니다.
-
-출처별 수집 결과표는 실행 항목 화면의 **Summary**에도 표로 나옵니다.
-
----
-
-## 3. 운영 가이드: 바꾸고 싶을 때
-
-모든 변경은 **GitHub 웹 화면**에서 하며, **다음 실행부터** 반영됩니다. 코드를 고쳐야 하는 경우는 "로그인·자바스크립트가 필요한 새 출처"뿐입니다.
-
-### 변경 절차 한눈에 보기
-
-| 바꾸려는 것 | 어디서 | 코드 수정 |
+| 순서 | 모드 | 하는 일 |
 | --- | --- | --- |
-| 출처 켜기/끄기, URL 변경, 그룹·제목 필터 변경 | [`config/sources.yaml`](config/sources.yaml) | 없음 |
-| 단순 목록형 게시판 출처 추가 | `sources.yaml`에 `type: generic_board` + 선택자 | 없음 (선택자는 Claude Code에 요청해 받기 권장) |
-| 로그인·자바스크립트가 필요한 출처 추가 | `src/rnd_noti/sources/custom/`에 어댑터 | **있음** (Claude Code에 요청) |
-| 발주처 그룹 이름·순서, 기관/부처 단위 전환 | [`config/groups.yaml`](config/groups.yaml) | 없음 |
-| 분류·키워드·제외어 | [`config/keywords.yaml`](config/keywords.yaml) | 없음 |
-| 구독자 추가·수정·일시중지 | Secrets `SUBSCRIBERS_JSON` | 없음 |
-| 발신 계정 변경 (다른 Gmail, 회사 SMTP) | Secrets `SMTP_*`, `MAIL_*` | 없음 |
-| 발송 요일·시간 | [`.github/workflows/weekly-report.yml`](.github/workflows/weekly-report.yml)의 `cron` 한 줄 | 없음 (설정 한 줄) |
+| ① | `check_sources` | 출처별 수집 성공/실패를 운영자 메일로 보냄 |
+| ② | `dry-run` | 메일을 보내지 않고 미리보기 파일만 만듦. 실행 화면 아래 **Artifacts**에서 내려받아 확인 |
+| ③ | `normal` | 구독자에게 실제 발송 |
 
-### GitHub 웹 화면에서 설정 파일 고치는 법
+**4. 끝.** 이후에는 매주 월요일 08:00(한국 시간)에 자동으로 발송됩니다.
 
-1. 저장소 첫 화면에서 `config` 폴더 → 고칠 파일(예: `keywords.yaml`)을 누릅니다.
-2. 오른쪽 위 **연필 아이콘(✏️ Edit this file)** 을 누릅니다.
-3. 내용을 고칩니다. **들여쓰기(앞 칸 띄우기)는 그대로** 두세요. YAML은 들여쓰기로 구조를 구분합니다.
-4. 오른쪽 위 초록색 **[Commit changes...]** → 다시 **[Commit changes]** 를 누릅니다.
-5. 출처를 바꿨다면 [2장](#수동-실행-run-workflow-버튼)의 **`check_sources`** 모드로 먼저 확인합니다.
+## 바꾸고 싶을 때
 
-**고친 직후 자동 검사**: `config` 폴더의 파일을 저장(Commit)하면 1분 안에 형식 검사가 자동으로 돕니다(메일 발송 없음).
+GitHub 웹 화면에서 파일을 열고 **연필 아이콘(✏️)** → 수정 → **[Commit changes]** 를 누르면 다음 실행부터 반영됩니다.
 
-- 저장소 첫 화면 위쪽, 마지막 커밋 문구 옆에 **초록 체크(✓)** 가 뜨면 정상입니다. 다음 월요일 실행부터 반영됩니다.
-- **빨간 X(✗)** 가 뜨면 X를 누르고 → **Details** → `Validate config` 단계에서 "설정 파일 오류: 어느 파일의 어느 항목"인지 한국어로 확인해 고칩니다.
-- 오타를 못 보고 지나쳐도, 월요일 실행 때 같은 오류 문구가 운영자 메일(`ADMIN_EMAIL`)로 옵니다. 이 경우 구독자 메일은 나가지 않으며, 고친 뒤 다시 실행하면 빠진 기간까지 모아서 보냅니다.
-- 키워드·분류·출처를 **추가·삭제·이름 변경해도 프로그램 코드나 테스트를 고칠 필요가 없습니다.** (분류 이름을 바꾸거나 지웠다면 `SUBSCRIBERS_JSON`의 `categories`도 같은 이름으로 맞춰 주세요.)
-
-### 분류·키워드 바꾸기 — `config/keywords.yaml`
-
-```yaml
-exclude:                      # 공통 제외: 이 단어가 있으면 모든 분류에서 제외
-  [경비, 시설경비, 보안요원, 경호, 방범, 보안등, 보안필름, 파쇄, 보안검색, 소방]
-categories:
-  보안 일반:
-    keywords: [정보보호, 정보보안, 사이버보안, 제로트러스트]
-    exclude: [CCTV, 영상감시, 출입통제, 시설보안]    # 이 분류에서만 제외
-  생체인증·출입보안:
-    keywords: [생체인증, 지문인식, 안면인식, 출입통제]
-```
-
-- 키워드는 **띄어쓰기 없이** 적습니다. 공고명이 "망 분리"처럼 띄어 써 있어도 `망분리`로 찾습니다. 영문 대소문자도 구분하지 않습니다(`vdi` = `VDI`).
-- 1단계는 **공고명**만 보고 찾습니다.
-- "가상화", "백신"처럼 넓은 단어는 첫 2~3주 결과를 보고, 엉뚱한 공고가 많으면 빼세요.
-- 분류 이름을 바꾸면 `SUBSCRIBERS_JSON`의 `categories`도 같이 바꿔야 합니다.
-
-### 출처 바꾸기 — `config/sources.yaml`
-
-```yaml
-- id: kisa                     # 출처 구분 이름 (영문, 바꾸지 마세요)
-  name: KISA 공지사항           # 메일·점검표에 보이는 이름
-  group: KISA                   # groups.yaml의 그룹 이름. "통합포털"이면 공고기관명으로 자동 재분류
-  ministry: 과학기술정보통신부
-  enabled: true                 # false로 바꾸면 수집 중단 (출처 점검에는 계속 표시)
-  type: generic_board           # api_g2b_bid | api_g2b_prespec | generic_board | custom:이름
-  url: https://www.kisa.or.kr/401
-  notice_type: 본공고           # 기본 유형 (제목에 '수요조사'·'사전규격'이 있으면 자동 전환)
-  title_filter: [공고, 모집, 사업]   # 제목에 이 단어가 있을 때만 수집 (비면 전체)
-  note: "메모"                  # 사람이 읽는 메모. 출처 점검 결과에 같이 표시
-  selectors:                    # generic_board일 때만: 목록 화면에서 공고를 찾는 위치
-    row: "table.tbl_board tbody tr"
-    title: "td.sbj a"
-    link: "td.sbj a@href"
-    date: "td.date"
-    deadline: "td.period"       # 없으면 생략
-  options: {page_param: page, id_params: [postSeq]}
-```
-
-- **출처 끄기**: `enabled: true` → `enabled: false`. 이유를 `note`에 적어 두세요.
-- **URL 변경**: `url`만 바꿉니다. 사이트 화면 구조가 바뀌어 수집이 안 되면 선택자도 바꿔야 하므로 Claude Code에 요청하세요.
-- **새 게시판 추가**: 위 덩어리를 복사해 맨 아래에 붙이고 `id`·`name`·`url`을 바꿉니다. 다만 `selectors`(화면에서 공고 위치를 찾는 규칙)는 사이트마다 달라서 직접 쓰기 어렵습니다. 이 부분만 Claude Code에 "이 주소를 출처로 추가해줘"라고 요청하세요. 프로그램 코드는 바꾸지 않고 이 파일만 바뀝니다.
-- **GPU 활용지원사업**처럼 기간이 정해진 사업이 끝나면 `enabled: false`로 둡니다.
-- 선택자·옵션의 자세한 설명은 [`generic_board.py`](src/rnd_noti/sources/generic_board.py) 맨 위에 있습니다.
-
-### 발주처 그룹 바꾸기 — `config/groups.yaml`
-
-- `groups` 목록의 **순서가 메일 섹션 순서**입니다.
-- `aliases`: IRIS·기업마당 같은 통합포털 공고는 공고기관명에 이 글자가 들어 있으면 그 그룹으로 옮깁니다. 맞는 그룹이 없으면 "기타 기관"으로 갑니다.
-- `group_by: ministry`로 바꾸면 기관 대신 **소관 부처** 단위로 섹션을 묶습니다.
-
-### 구독자 바꾸기 — Secrets `SUBSCRIBERS_JSON`
-
-1. [Settings] → [Secrets and variables] → [Actions]로 갑니다.
-2. `SUBSCRIBERS_JSON` 오른쪽의 **연필 아이콘(Update)** 을 누릅니다.
-3. 보관해 둔 원본을 고친 뒤 **목록 전체를** 붙여넣고 **[Update secret]** 을 누릅니다.
-
-- 추가: 목록에 `{...}` 한 덩어리를 더합니다. 덩어리 사이에는 쉼표(`,`)를 넣습니다.
-- 일시중지: `"active": false`로 바꿉니다.
-- **원본 보관 필수**: Secrets는 저장한 뒤에는 내용을 다시 볼 수 없습니다. 구독자 목록 원본을 본인만 보는 곳(예: PC의 `subscribers.json` — 이 이름은 저장소에 올라가지 않게 막혀 있습니다)에 보관해 두고, 고칠 때마다 전체를 다시 붙여넣으세요.
-
-### 발신 계정 바꾸기 — Secrets `SMTP_*`, `MAIL_*`
-
-- 다른 Gmail로 바꿀 때: `SMTP_USER`, `SMTP_PASSWORD`만 새 값으로 덮어씁니다.
-- 회사 메일 서버로 바꿀 때: `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`를 IT 담당자에게 받은 값으로 바꿉니다. 포트 465는 SSL, 그 외 포트는 STARTTLS로 접속합니다.
-
-### 발송 요일·시간 바꾸기
-
-[`.github/workflows/weekly-report.yml`](.github/workflows/weekly-report.yml)의 `cron` 줄만 고칩니다. 시간은 **UTC 기준**(한국 시간에서 9시간을 뺀 값)입니다.
-
-| 원하는 시간 (한국) | cron 값 |
+| 바꾸려는 것 | 고칠 곳 |
 | --- | --- |
-| 월요일 08:00 (현재) | `"0 23 * * 0"` (일요일 23:00 UTC) |
-| 월요일 09:00 | `"0 0 * * 1"` |
-| 금요일 17:00 | `"0 8 * * 5"` |
+| 분류·키워드·제외어 | [config/keywords.yaml](config/keywords.yaml) |
+| 출처 켜기/끄기, 주소 변경 | [config/sources.yaml](config/sources.yaml) (`enabled`, `url`) |
+| 메일 섹션(발주처 그룹) 이름·순서 | [config/groups.yaml](config/groups.yaml) |
+| 구독자 추가·수정·일시중지 | Secrets `SUBSCRIBERS_JSON` (전체를 다시 붙여넣기) |
+| 발신 계정 | Secrets `SMTP_USER`, `SMTP_PASSWORD` |
+| 발송 요일·시간 | [.github/workflows/weekly-report.yml](.github/workflows/weekly-report.yml)의 `cron` 한 줄 |
 
-### 출처 점검 모드
+- 설정 파일을 저장하면 1분 안에 자동 검사가 돕니다. 커밋 옆에 **초록 체크(✓)** 면 정상, **빨간 X(✗)** 면 눌러서 한국어 오류 문구를 확인하고 고칩니다.
+- 분류 이름을 바꾸거나 지웠다면 `SUBSCRIBERS_JSON`의 `categories`도 맞춰 주세요.
+- **새 게시판을 출처로 추가**하려면 화면에서 공고 위치를 찾는 규칙이 필요합니다. Claude Code에 "이 주소를 출처로 추가해줘"라고 요청하세요.
 
-출처를 추가·수정한 뒤에는 수동 실행에서 `check_sources`를 고르세요. 메일은 운영자에게만 가며, 출처별 **성공/실패/꺼짐**, 최근 30일 수집 건수, 실패 사유, 최근 공고 3건을 보여줍니다. 구독자에게는 보내지 않고 상태도 바꾸지 않습니다.
+## 문제가 생겼을 때
 
----
-
-## 4. 수집 출처 21곳 현황
-
-2026-11-11 한국 IP에서 점검한 결과입니다. GitHub Actions는 해외 서버에서 실행되므로, 실제 결과는 첫 `check_sources` 실행으로 다시 확인하세요.
-
-| # | id | 출처 | 방식 | 상태 |
-| --- | --- | --- | --- | --- |
-| 1 | `g2b_bid` | 나라장터 입찰공고 | 공공데이터포털 API (용역·물품) | 켜짐 · 인증키 등록 후 실제 호출 확인 필요 |
-| 2 | `g2b_prespec` | 나라장터 사전규격 | 공공데이터포털 API (용역·물품) | 켜짐 · 인증키 등록 후 실제 호출 확인 필요 |
-| 3 | `iris` | IRIS 통합 사업공고 | 전용 어댑터 (목록 데이터 JSON) | 켜짐 · 공고기관명으로 재분류 |
-| 4 | `ntis` | NTIS R&D공고 | — | **꺼짐** · robots.txt가 자동 수집 전면 금지 |
-| 5 | `bizinfo` | 기업마당 지원사업조회 | 범용 게시판 | 켜짐 · 소관기관명으로 재분류 |
-| 6 | `msit` | 과학기술정보통신부 사업공고 | 전용 어댑터 (화면 스크립트 값) | 켜짐 |
-| 7 | `iitp` | IITP (현)사업공고 | — | **꺼짐** · robots.txt가 자동 수집 전면 금지 → IRIS로 대체 |
-| 8 | `nipa` | NIPA 사업공고 목록 | 범용 게시판 | 켜짐 |
-| 9 | `gpu` | GPU 활용지원사업 | — | **꺼짐** · 사이트 인증서 설정 오류 |
-| 10 | `nia` | 한국정보화진흥원 | 범용 게시판 | 켜짐 |
-| 11 | `kisa` | KISA 공지사항 | 범용 게시판 + 제목 필터 | 켜짐 · 주소 변경됨 |
-| 12 | `kisia` | 정보보호산업협회 공고 | 범용 게시판 | 켜짐 |
-| 13 | `etri` | ETRI 공동연구 공고 | — | **꺼짐** · 접속 시간 초과 |
-| 14 | `keit_rnd` | KEIT R&D 공고 | 범용 게시판 | 켜짐 |
-| 15 | `keit_demand` | KEIT 수요조사 공고 | 범용 게시판 | 켜짐 |
-| 16 | `smtech` | 중소기업 기술개발사업 종합관리시스템 | 범용 게시판 (POST) | 켜짐 |
-| 17 | `mss` | 중소벤처기업부 훈령·고시·공고 | 범용 게시판 + 제목 필터 | 켜짐 |
-| 18 | `export_capability` | 수출지원센터 수출역량강화사업 | — | **꺼짐** · 19번과 같은 게시판 |
-| 19 | `export_center` | 중소기업수출지원센터 | 범용 게시판 | 켜짐 |
-| 20 | `export_infra` | 수출지원기반활용사업 | 범용 게시판 | 켜짐 |
-| 21 | `sba` | SBA | 전용 어댑터 (준비됨) | **꺼짐** · 자동 요청 거부(HTTP 400) |
-
-수집 원칙: 사이트의 robots.txt가 금지하는 곳은 수집하지 않습니다. 인증서 검사 끄기, 브라우저 위장처럼 사이트의 차단을 피해 가는 방식도 쓰지 않습니다.
-
----
-
-## 5. 메일 받는 분께 안내할 것
-
-처음 발송한 뒤, 받는 분께 아래 내용을 전해 주세요. 회사 메일에서는 처음 오는 Gmail 발송 메일을 스팸으로 분류할 수 있습니다.
-
-> R&D Noti 메일이 '정크 메일(스팸)' 폴더에 있다면, 메일을 열고 위쪽 **[정크 아님]**(또는 **[보낸 사람 신뢰]**)을 눌러 주세요.
-> Outlook 데스크톱: 메일을 마우스 오른쪽 버튼으로 누르고 **[정크] → [보낸 사람을 차단하지 않음]** → '안전한 보낸 사람 목록'에 추가됩니다.
-
-메일 맨 아래에 "분류/키워드 변경이나 수신 중단은 회신으로 알려주세요."가 있으므로, 받는 분은 회신만 하면 됩니다.
-
----
-
-## 6. 문제가 생겼을 때
-
-| 증상 | 확인할 곳 |
+| 증상 | 확인할 것 |
 | --- | --- |
-| 메일이 안 옴 | [Actions] 탭의 실행 기록이 빨간 ✕인지 확인 → 눌러서 `Run` 단계 로그 확인. 운영자 메일(`ADMIN_EMAIL`)에 오류 메일이 왔는지 확인 |
-| "메일 서버 로그인 실패" | `SMTP_PASSWORD`가 **앱 비밀번호**인지(일반 비밀번호 아님), 띄어쓰기 없이 넣었는지 확인 |
-| "인증키가 등록되지 않았거나…" | 공공데이터포털 활용신청이 두 API 모두 승인됐는지, `DATA_GO_KR_KEY`에 **Decoding** 키를 넣었는지 확인 |
-| "등록되지 않은 IP…" / 나라장터만 계속 실패 | 공공데이터포털이 해외 IP(GitHub 서버)를 막는 경우입니다. 출처 점검 결과를 Claude Code에 보여 주고 대안을 요청하세요 |
-| 특정 출처만 "공고를 찾지 못했습니다" | 사이트 화면이 바뀐 경우입니다. 그 출처를 `enabled: false`로 두고 Claude Code에 선택자 수정을 요청하세요 |
-| "구독자 목록 오류" | `SUBSCRIBERS_JSON`의 쉼표·따옴표·대괄호를 확인하세요. 로그에 몇 번째 구독자가 틀렸는지 나옵니다 |
-| 같은 공고가 또 옴 | 정정 공고(**정정** 배지)이거나, 마감 7일 이내 공고(**리마인드** 배지)입니다. 정상 동작입니다 |
+| 메일이 안 옴 | [Actions] 탭에서 빨간 ✕ 실행을 눌러 `Run` 단계 로그 확인. 운영자 메일로 온 오류 메일 확인 |
+| 메일 서버 로그인 실패 | `SMTP_PASSWORD`가 일반 비밀번호가 아닌 **앱 비밀번호**인지 확인 |
+| 나라장터만 실패 | 인증키 활용신청 2건이 모두 승인됐는지, **Decoding** 키인지 확인 |
+| 특정 출처만 실패 | 사이트 화면이 바뀐 경우. `enabled: false`로 끄고 Claude Code에 수정 요청 |
+| 같은 공고가 또 옴 | **정정** 또는 **리마인드**(마감 7일 이내) 배지가 붙은 정상 동작 |
+| 받는 사람 스팸함에 들어감 | 받는 분이 메일에서 **[정크 아님]** 을 한 번 눌러 주면 됨 |
 
-**실행 상태 파일**: `state/last_run.json`(마지막 성공 실행일)과 `state/seen.json`(이미 보낸 공고, 90일 보관)은 발송이 성공한 뒤에만 자동으로 저장소에 커밋됩니다. 실행을 건너뛴 주가 있어도, 다음 실행 때 마지막 성공일 다음 날부터 모아서 보냅니다.
+더 많은 경우는 [상세 가이드 6장](GUIDE.md#6-문제가-생겼을-때)을 보세요.
 
-**오래 써도 쌓이지 않는 구조**
+## 알아둘 점
 
-| 항목 | 어디에 남나 | 늘어나는가 |
-| --- | --- | --- |
-| 실행 기록·로그 | GitHub Actions 탭 (저장소 파일 아님) | GitHub가 90일 뒤 자동 삭제 |
-| 미리보기·점검 결과 파일 | Actions 아티팩트 (저장소 파일 아님) | 14일 뒤 자동 삭제 |
-| `state/` 파일 | 저장소 | 파일 2개를 **덮어쓰기**만 함. `seen.json`은 보낸 공고만 담고 90일이 지나고 마감도 지난 항목은 지움 |
-| 커밋 기록 | 저장소 | 주 1건(연 52건), 수 KB 수준이라 수십 년 써도 부담 없음 |
-
-- 주 1회 `state` 커밋은 **자동 실행이 꺼지지 않게 하는 역할**도 합니다. GitHub는 60일간 아무 변화가 없는 공개 저장소의 예약 실행을 자동으로 끄는데, 매주 커밋이 생기므로 해당되지 않습니다. 단, 실행이 60일 넘게 계속 실패하면 꺼질 수 있으니 오류 메일을 방치하지 마세요(꺼졌다면 Actions 탭 → 워크플로 → **Enable workflow**).
-- 2~3년에 한 번쯤 GitHub가 "오래된 버전의 actions" 경고 메일을 보낼 수 있습니다. 그때 Claude Code에 "워크플로의 actions 버전을 올려줘"라고 요청하면 됩니다.
-
----
-
-## 7. 구조 요약 (개발자용)
-
-```text
-수집(sources) → 정규화(normalize) → 매칭(match) → 리포트(report) → 발송(mailer) → 상태(state)
-```
-
-```text
-.github/workflows/weekly-report.yml   일정 실행 + 수동 실행(dry-run / normal / check_sources) + state 커밋
-.github/workflows/validate-config.yml config/ 수정 시 자동 형식 검사
-config/                               keywords.yaml · sources.yaml · groups.yaml
-src/rnd_noti/
-  main.py                             실행 진입점 (모드별 흐름, 출처별 결과표, 운영자 알림)
-  models.py                           공통 공고 스키마 Notice (summary는 2단계용 예약 필드)
-  config.py                           설정 파일 읽기·검사
-  state.py                            seen.json / last_run.json, 수집 기간 계산
-  normalize.py                        제목 필터, 공고 유형, 발주처 그룹 재분류, 금액 표기
-  match.py                            중복(출처 내·출처 간)·정정·리마인드, 제외어·분류 매칭
-  subscribers.py                      SUBSCRIBERS_JSON 읽기·검사
-  report.py / preview.py              메일 데이터 구성, 주차 계산, 샘플 미리보기
-  mailer.py                           SMTP 발송 (HTML + 텍스트 multipart/alternative)
-  sources/
-    base.py, registry.py              어댑터 인터페이스 fetch(since, until), type → 어댑터 연결
-    http.py                           0.5초 간격, 3회 재시도, 오류 메시지 비밀값 가리기
-    g2b_bid.py, g2b_prespec.py        나라장터 API
-    generic_board.py                  설정(CSS 선택자)만으로 동작하는 범용 게시판 수집기
-    custom/iris.py, msit.py, sba.py   전용 어댑터
-templates/                            weekly_report.html/.txt, check_sources.html, admin_error.html
-samples/sample_notices.json           메일 미리보기용 가짜 데이터
-samples/config/                       테스트·샘플 전용 고정 설정 사본 (운영 설정 config/와 분리)
-tests/                                출처별 샘플 응답(fixtures)으로 테스트. 운영 설정 내용에 의존하지 않음
-```
-
-**PC에서 직접 실행하기 (선택)** — Python 3.12 필요:
-
-```bash
-pip install -r requirements.txt
-python -m pytest -q                                   # 테스트
-PYTHONPATH=src python -m rnd_noti.preview             # 샘플 데이터로 output/preview_*.html 생성
-PYTHONPATH=src python -m rnd_noti.main --mode dry-run # 실제 수집 + 미리보기 파일
-PYTHONPATH=src python -m rnd_noti.main --mode validate # 설정 파일 형식 검사만
-```
-
-비밀값은 저장소에 두지 않습니다. `.gitignore`는 `.env`, `*.key`, `secrets*.json`, `subscribers*.json`, 북마크 파일, `docs/`, `output/`을 제외합니다.
+- 현재 21개 출처 중 15곳을 수집합니다. robots.txt가 금지하거나 접속이 거부되는 6곳은 꺼 두었습니다. ([출처 현황](GUIDE.md#4-수집-출처-21곳-현황))
+- 실행 기록과 미리보기 파일은 저장소에 쌓이지 않고 GitHub가 자동으로 지웁니다. 저장소에는 `state/` 파일 2개만 매주 덮어씁니다.
+- 인증키·메일 계정·구독자 주소는 Secrets에만 두며, 파일이나 로그에 남지 않습니다.
