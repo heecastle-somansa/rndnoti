@@ -8,6 +8,7 @@
 """
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field, replace
 from datetime import date, timedelta
 
@@ -31,6 +32,10 @@ class Subscriber:
     active: bool = True
     sources: list[str] = field(default_factory=list)          # 비어 있으면 전체
     exclude_sources: list[str] = field(default_factory=list)
+    tracks: list[str] = field(default_factory=list)           # 받을 공고 카테고리 (비어 있으면 전체)
+
+    def wants_track(self, track: str) -> bool:
+        return not self.tracks or not track or track in self.tracks
 
     def wants_source(self, source_id: str) -> bool:
         if self.sources and source_id not in self.sources:
@@ -61,18 +66,28 @@ def drop_expired(notices: list[Notice], today: date) -> list[Notice]:
     return [n for n in notices if n.deadline is None or n.deadline >= today]
 
 
-def dedupe_cross_source(notices: list[Notice], portal_sources: set[str]) -> list[Notice]:
+_LEADING_TAG = re.compile(r"^\s*(?:(?:\[[^\]]*\]|\([^)]*\)|【[^】]*】)\s*)+")
+
+
+def dedupe_cross_source(notices: list[Notice], portal_sources: set[str],
+                        title_only_tracks: frozenset[str] | set[str] = frozenset()) -> list[Notice]:
     """F14: 공고명(공백·괄호 제거) + 기관(발주처 그룹) + 마감일이 같으면 하나만 남긴다.
 
     - 기관은 출처마다 표기가 달라(IRIS '정보통신기획평가원' vs IITP 게시판) 정규화된 발주처 그룹으로 비교한다.
     - 한쪽에 마감일이 없으면 공고명+기관만으로 같은 공고로 본다.
     - 기관 게시판 공고를 통합포털 공고보다 우선한다.
+    - title_only_tracks(입찰)에 속한 공고는 기관을 따지지 않고 공고명만 비교한다. 같은 입찰이
+      나라장터와 기관 자체 게시판("[입찰공고] ○○" 형태)에 함께 올라오기 때문이다.
+      이때는 금액 정보가 있는 쪽(나라장터)을 남긴다.
     """
-    ordered = sorted(notices, key=lambda n: n.source in portal_sources)   # 기관 게시판 먼저
+    ordered = sorted(notices, key=lambda n: (n.source in portal_sources, n.budget_krw is None))
     kept: list[Notice] = []
     index: dict[tuple[str, str], list[Notice]] = {}
     for n in ordered:
-        key = (title_key(n.title), n.agency_group)
+        if n.track and n.track in title_only_tracks:
+            key = (title_key(_LEADING_TAG.sub("", n.title)), f"track:{n.track}")
+        else:
+            key = (title_key(n.title), n.agency_group)
         same = index.setdefault(key, [])
         if any(k.deadline is None or n.deadline is None or k.deadline == n.deadline for k in same):
             continue
@@ -87,8 +102,12 @@ def contains_any(title_norm: str, words: tuple[str, ...]) -> list[str]:
     return [w for w in words if norm(w) and norm(w) in title_norm]
 
 
-def match_categories(title: str, chosen: list[str], kw: KeywordConfig) -> dict[str, list[str]]:
-    """F6·F7: 공통 제외어 → 전체 제외. 분류별 제외어 → 그 분류만 제외. 키워드 하나라도 있으면 매칭."""
+def match_categories(title: str, chosen: list[str], kw: KeywordConfig,
+                     track: str | None = None) -> dict[str, list[str]]:
+    """F6·F7: 공통 제외어 → 전체 제외. 분류별 제외어 → 그 분류만 제외. 키워드 하나라도 있으면 매칭.
+
+    분류에 only_in이 있으면 그 공고 카테고리의 공고에만 적용한다(예: '바우처·인프라 지원'은 바우처 공고에만).
+    """
     t = norm(title)
     if contains_any(t, kw.exclude):
         return {}
@@ -96,6 +115,8 @@ def match_categories(title: str, chosen: list[str], kw: KeywordConfig) -> dict[s
     for name in chosen:
         cat = kw.categories.get(name)
         if cat is None or contains_any(t, cat.exclude):
+            continue
+        if cat.only_in and track is not None and track not in cat.only_in:
             continue
         hits = contains_any(t, cat.keywords)
         if hits:
@@ -120,12 +141,12 @@ def select_for_subscriber(
     items: list[Item] = []
     taken: set[str] = set()
     for n in pool:
-        if not sub.wants_source(n.source):
+        if not sub.wants_source(n.source) or not sub.wants_track(n.track):
             continue
         kind = classify_against_seen(n, seen)
         if kind is None:
             continue
-        matched = match_categories(n.title, sub.categories, kw)
+        matched = match_categories(n.title, sub.categories, kw, n.track)
         if matched:
             items.append(Item(replace(n, matched=matched), kind))
             taken.add(n.uid)
@@ -135,9 +156,9 @@ def select_for_subscriber(
         n = entry.notice
         if uid in taken or not n.deadline or not (today <= n.deadline <= limit):
             continue
-        if not sub.wants_source(n.source):
+        if not sub.wants_source(n.source) or not sub.wants_track(n.track):
             continue
-        matched = match_categories(n.title, sub.categories, kw)
+        matched = match_categories(n.title, sub.categories, kw, n.track)
         if matched:
             items.append(Item(replace(n, matched=matched), KIND_REMINDER))
     return items

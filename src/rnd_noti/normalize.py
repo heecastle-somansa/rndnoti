@@ -44,8 +44,28 @@ def assign_group(org: str, groups: GroupConfig) -> str:
     return groups.fallback_group
 
 
+def assign_track(title: str, source: SourceConfig, groups: GroupConfig) -> str:
+    """공고 카테고리 정하기. 기본은 출처의 category, 공고명에 다른 카테고리의 단어가 있으면 그쪽으로 옮긴다.
+
+    예) 기업마당(기본 바우처)의 "○○ 기술개발사업 공고" → R&D
+        NIPA 사업공고(기본 R&D)의 "AI 바우처 지원사업 수요기업 모집" → 바우처
+    fixed 카테고리(입찰)의 출처는 옮기지 않는다.
+    """
+    if not groups.tracks:
+        return ""
+    default = source.track or groups.tracks[0].name
+    current = groups.track(default)
+    if current is not None and current.fixed:
+        return default
+    t = norm(title)
+    for track in groups.tracks:
+        if any(norm(w) and norm(w) in t for w in track.keywords):
+            return track.name
+    return default
+
+
 def normalize(notice: Notice, source: SourceConfig, groups: GroupConfig) -> Notice:
-    changes: dict = {}
+    changes: dict = {"track": assign_track(notice.title, source, groups)}
     if any(w in notice.title for w in _PRE_WORDS):
         changes["notice_type"] = NOTICE_TYPE_PRE
     if source.group == groups.portal_group:

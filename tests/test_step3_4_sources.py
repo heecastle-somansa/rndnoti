@@ -180,7 +180,7 @@ def test_sba_end_date_year():
 
 def test_all_21_sources_have_decision():
     """수집하지 않는 출처는 반드시 사유(note)가 있어야 한다."""
-    assert len(SOURCES) == 21
+    assert len(SOURCES) == 26
     for s in SOURCES.values():
         if not s.enabled:
             assert s.note, f"{s.id}: 꺼진 출처에 사유(note)가 없습니다"

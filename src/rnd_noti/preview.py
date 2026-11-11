@@ -36,10 +36,11 @@ def build_sample(out_dir: Path) -> list[Path]:
                "ministry": src.ministry, **raw}
         notices.append(normalize(Notice.from_dict(raw), src, cfg.groups))
     portal = {s.id for s in cfg.sources if s.group == cfg.groups.portal_group}
-    pool = dedupe_cross_source(drop_expired(dedupe_same_uid(notices), today), portal)
+    title_only = {t.name for t in cfg.groups.tracks if t.dedupe_by_title}
+    pool = dedupe_cross_source(drop_expired(dedupe_same_uid(notices), today), portal, title_only)
     seen = {e["notice"]["uid"]: SeenEntry(date.fromisoformat(e["first_sent"]), Notice.from_dict(e["notice"]))
             for e in data["seen"]}
-    subs, _ = load_subscribers(json.dumps(data["subscribers"]), cfg.keywords, set(sources))
+    subs, _ = load_subscribers(json.dumps(data["subscribers"]), cfg.keywords, set(sources), cfg.groups)
     out_dir.mkdir(parents=True, exist_ok=True)
     written = []
     for sub in subs:

@@ -49,14 +49,17 @@ def test_real_config_loads():
 
 def test_frozen_config_contents():
     cfg = load_config(TEST_CONFIG)
-    assert len(cfg.sources) == 21
-    assert len({s.id for s in cfg.sources}) == 21
+    assert len(cfg.sources) == 26
+    assert len({s.id for s in cfg.sources}) == 26
     assert cfg.groups.names == [
         "나라장터", "과학기술정보통신부", "IITP", "NIPA", "GPU추진단", "NIA", "KISA", "KISIA",
-        "ETRI", "KEIT", "중소벤처기업부", "수출지원", "SBA", "기타 기관"]
+        "ETRI", "KEIT", "중소벤처기업부", "수출지원", "SBA", "KLID", "기타 기관"]
+    assert cfg.groups.track_names == ["R&D", "입찰", "바우처"]
+    assert {s.id: s.track for s in cfg.sources}["bizinfo"] == "바우처"
     assert cfg.groups.group_by == "agency"
     assert set(cfg.keywords.categories) == {
-        "망분리·VDI", "클라우드·가상화", "DLP·정보유출", "엔드포인트", "보안 일반", "생체인증·출입보안"}
+        "망분리·VDI", "클라우드·가상화", "DLP·정보유출", "엔드포인트", "보안 일반", "생체인증·출입보안",
+        "바우처·인프라 지원", "인증·지식재산 지원", "판로·해외진출 지원"}
     assert "소방" in cfg.keywords.exclude
     # CCTV·출입통제는 공통 제외가 아니라 보안 분류별 제외
     assert "출입통제" not in cfg.keywords.exclude

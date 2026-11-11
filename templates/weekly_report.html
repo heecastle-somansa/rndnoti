@@ -46,6 +46,14 @@
 
   {# ── 발주처별 공고 섹션 ── #}
   {% for s in r.sections %}
+  {% if s.first_in_track and s.track_label %}
+  {# ── 공고 카테고리 띠 (R&D / 입찰 / 바우처) ── #}
+  <tr><td style="padding:24px 24px 0 24px;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+      <tr><td bgcolor="#101828" style="background-color:#101828; padding:8px 12px; {{ F }} font-size:15px; font-weight:bold; color:#ffffff;">{{ s.track_label }} · {{ s.track_count }}건</td></tr>
+    </table>
+  </td></tr>
+  {% endif %}
   <tr><td style="padding:20px 24px 6px 24px; {{ F }}">
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
       <tr><td style="{{ F }} font-size:16px; font-weight:bold; color:#101828; padding-bottom:6px; border-bottom:2px solid #101828;">{{ s.name }} ({{ s.count }}건)</td></tr>

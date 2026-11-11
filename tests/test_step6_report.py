@@ -133,3 +133,17 @@ def test_sample_preview_files(tmp_path):
     assert "KISIA" not in friend                               # exclude_sources
     assert "[리마인드]" in me and "[리마인드]" in friend
     assert "@" not in me.split("\n", 1)[1]                     # 본문에 메일 주소 없음
+
+
+def test_mail_is_split_by_category_bands_then_agency():
+    items = [item("b1", "망분리 구축", track="입찰"),
+             item("r1", "망분리 기술개발 과제", group="IITP", track="R&D"),
+             item("r2", "망분리 실증 과제", group="KISA", track="R&D"),
+             item("v1", "망분리 바우처 지원사업", group="KISA", track="바우처")]
+    r = report_of(items)
+    assert [(s.track_label, s.name, s.first_in_track) for s in r.sections] == [
+        ("부처별 R&D 공고", "IITP", True), ("부처별 R&D 공고", "KISA", False),
+        ("나라장터·기관 입찰 공고", "나라장터", True), ("바우처·지원사업 공고", "KISA", True)]
+    html, text = render(r)
+    assert html.count("부처별 R&amp;D 공고 · 2건") == 1 and "바우처·지원사업 공고 · 1건" in html
+    assert text.index("부처별 R&D 공고") < text.index("나라장터·기관 입찰 공고") < text.index("바우처·지원사업 공고")

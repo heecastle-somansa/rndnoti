@@ -7,6 +7,26 @@ group_by: agency            # agency(기관별, 기본) | ministry(소관 부처
 portal_group: 통합포털       # sources.yaml에서 group이 이 값이면 공고기관명으로 재분류
 fallback_group: 기타 기관
 
+# ───────────── 공고 카테고리 (메일의 가장 큰 구획. 위에서부터 순서대로 표시) ─────────────
+# - 각 출처의 기본 카테고리는 sources.yaml의 category에 적습니다.
+# - title_keywords: 공고명에 이 단어가 있으면 출처의 기본값과 상관없이 이 카테고리로 옮깁니다.
+#   (위에 있는 카테고리가 먼저 적용됩니다. 예: "기술개발 지원사업" → R&D)
+# - fixed: true            → 이 카테고리 출처의 공고는 다른 카테고리로 옮기지 않습니다.
+# - dedupe_by_title: true  → 기관이 달라도 공고명이 같으면 한 번만 보여줍니다(나라장터와 기관 게시판에 함께 올라오는 입찰).
+categories:
+  - name: R&D
+    label: 부처별 R&D 공고
+    title_keywords: [R&D, 연구개발, 기술개발, 신규과제, 과제공모, 수요조사]
+  - name: 입찰
+    label: 나라장터·기관 입찰 공고
+    fixed: true
+    dedupe_by_title: true
+    title_keywords: [입찰, 사전규격, 제안요청]
+  - name: 바우처
+    label: 바우처·지원사업 공고
+    title_keywords: [바우처, 지원사업, 수요기업, 참여기업, 공급기업, 활용지원, 이용지원, 인증, 지식재산,
+                     해외진출, 수출, 전시회, 판로]
+
 groups:
   - name: 나라장터
     ministry: 나라장터
@@ -47,6 +67,9 @@ groups:
   - name: SBA
     ministry: 서울특별시
     aliases: [SBA, 서울경제진흥원, 서울산업진흥원]
+  - name: KLID
+    ministry: 행정안전부
+    aliases: [KLID, 한국지역정보개발원]
   - name: 기타 기관
     ministry: 기타
     aliases: []

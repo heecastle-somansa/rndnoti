@@ -7,7 +7,7 @@ from __future__ import annotations
 import json
 import re
 
-from .config import KeywordConfig
+from .config import GroupConfig, KeywordConfig
 from .match import Subscriber
 
 _EMAIL = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
@@ -17,7 +17,8 @@ class SubscriberError(Exception):
     pass
 
 
-def load_subscribers(raw: str, kw: KeywordConfig, source_ids: set[str]) -> tuple[list[Subscriber], list[str]]:
+def load_subscribers(raw: str, kw: KeywordConfig, source_ids: set[str],
+                     groups: GroupConfig | None = None) -> tuple[list[Subscriber], list[str]]:
     """(활성 구독자 목록, 경고 메시지 목록). 형식이 틀리면 SubscriberError."""
     if not raw or not raw.strip():
         raise SubscriberError("SUBSCRIBERS_JSON이 비어 있습니다")
@@ -53,11 +54,19 @@ def load_subscribers(raw: str, kw: KeywordConfig, source_ids: set[str]) -> tuple
             bad = [s for s in item.get(key) or [] if s not in source_ids]
             if bad:
                 warnings.append(f"구독자 '{name}': {key}에 없는 출처 id: {', '.join(bad)}")
+        tracks = [str(t) for t in item.get("source_categories") or []]
+        known = groups.track_names if groups else []
+        bad = [t for t in tracks if t not in known]
+        if bad:
+            warnings.append(f"구독자 '{name}': source_categories에 없는 카테고리는 무시합니다: {', '.join(bad)} "
+                            f"(가능: {' | '.join(known)})")
+        tracks = [t for t in tracks if t in known]
         sub = Subscriber(
             name=name, email=email, categories=cats,
             active=bool(item.get("active", True)),
             sources=[str(s) for s in item.get("sources") or []],
             exclude_sources=[str(s) for s in item.get("exclude_sources") or []],
+            tracks=tracks,
         )
         if sub.active and cats:
             subs.append(sub)

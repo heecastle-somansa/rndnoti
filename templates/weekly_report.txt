@@ -8,6 +8,11 @@
 이번 주 신규 공고 없음
 {% endif %}
 {% for s in r.sections %}
+{% if s.first_in_track and s.track_label %}
+
+
+━━━ {{ s.track_label }} · {{ s.track_count }}건 ━━━
+{% endif %}
 
 ■ {{ s.name }} ({{ s.count }}건)
 {% for c in s.cards %}

@@ -24,6 +24,7 @@ class Notice:
     url: str = ""                         # 원문 링크 (절대 URL)
     source_name: str = ""                 # 수집 게시판명
     agency_group: str = ""                # 발주처 그룹 (정규화 단계에서 확정)
+    track: str = ""                       # 공고 카테고리: R&D | 입찰 | 바우처 (정규화 단계에서 확정)
     ministry: str = ""                    # 소관 부처
     notice_type: str = NOTICE_TYPE_MAIN   # 본공고 | 사전규격/수요조사
     is_revision: bool = False             # 정정·재공고 여부

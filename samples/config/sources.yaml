@@ -6,6 +6,8 @@
 #   url          : 목록 화면 주소
 #   title_filter : 제목에 이 단어 중 하나가 있을 때만 수집 (비어 있으면 전체)
 #   group        : config/groups.yaml의 그룹 이름. "통합포털"이면 공고기관명으로 자동 재분류
+#   category     : 공고 카테고리 (R&D | 입찰 | 바우처). 이 출처 공고의 기본 카테고리입니다.
+#                  공고명에 다른 카테고리의 단어가 있으면 자동으로 옮겨집니다(groups.yaml의 categories 참고)
 #
 # type: api_g2b_bid | api_g2b_prespec | generic_board | custom:<이름>
 # generic_board의 selectors/options 설명은 src/rnd_noti/sources/generic_board.py 맨 위에 있습니다.
@@ -19,6 +21,7 @@
 - id: g2b_bid
   name: 나라장터 입찰공고
   group: 나라장터
+  category: 입찰
   ministry: 나라장터
   enabled: true
   type: api_g2b_bid
@@ -29,6 +32,7 @@
 - id: g2b_prespec
   name: 나라장터 사전규격
   group: 나라장터
+  category: 입찰
   ministry: 나라장터
   enabled: true
   type: api_g2b_prespec
@@ -40,6 +44,7 @@
 - id: iris
   name: IRIS 통합 사업공고
   group: 통합포털
+  category: R&D
   enabled: true
   type: custom:iris
   url: https://www.iris.go.kr/contents/retrieveBsnsAncmBtinSituListView.do
@@ -48,6 +53,7 @@
 - id: ntis
   name: NTIS R&D공고
   group: 통합포털
+  category: R&D
   enabled: false
   type: generic_board
   url: http://www.ntis.go.kr/rndgate/eg/un/ra/mng.do
@@ -57,6 +63,7 @@
 - id: bizinfo
   name: 기업마당 지원사업조회
   group: 통합포털
+  category: 바우처
   enabled: true
   type: generic_board
   url: https://www.bizinfo.go.kr/see/seea/selectSEEA100.do
@@ -74,6 +81,7 @@
 - id: msit
   name: 과학기술정보통신부 사업공고
   group: 과학기술정보통신부
+  category: R&D
   ministry: 과학기술정보통신부
   enabled: true
   type: custom:msit
@@ -83,6 +91,7 @@
 - id: iitp
   name: IITP (현)사업공고
   group: IITP
+  category: R&D
   ministry: 과학기술정보통신부
   enabled: false
   type: generic_board
@@ -93,6 +102,7 @@
 - id: nipa
   name: NIPA 사업공고 목록
   group: NIPA
+  category: R&D
   ministry: 과학기술정보통신부
   enabled: true
   type: generic_board
@@ -109,6 +119,7 @@
 - id: gpu
   name: GPU 활용지원사업
   group: GPU추진단
+  category: 바우처
   ministry: 과학기술정보통신부
   enabled: false        # 단기 사업. 종료되면 계속 false
   type: generic_board
@@ -117,8 +128,9 @@
   note: "사이트 보안 인증서 설정 오류(중간 인증서 누락)로 프로그램 접속이 거부됨. 인증서 검사를 끄는 우회는 하지 않음"
 
 - id: nia
-  name: 한국정보화진흥원
+  name: NIA 입찰공고
   group: NIA
+  category: 입찰
   ministry: 과학기술정보통신부
   enabled: true
   type: generic_board
@@ -138,6 +150,7 @@
 - id: kisa
   name: KISA 공지사항
   group: KISA
+  category: 바우처
   ministry: 과학기술정보통신부
   enabled: true
   type: generic_board
@@ -155,6 +168,7 @@
 - id: kisia
   name: 정보보호산업협회 공고
   group: KISIA
+  category: 바우처
   ministry: 과학기술정보통신부
   enabled: true
   type: generic_board
@@ -170,6 +184,7 @@
 - id: etri
   name: ETRI 공동연구 공고
   group: ETRI
+  category: R&D
   ministry: 과학기술정보통신부
   enabled: false
   type: generic_board
@@ -180,6 +195,7 @@
 - id: keit_rnd
   name: KEIT R&D 공고
   group: KEIT
+  category: R&D
   ministry: 산업통상부
   enabled: true
   type: generic_board
@@ -199,6 +215,7 @@
 - id: keit_demand
   name: KEIT 수요조사 공고
   group: KEIT
+  category: R&D
   ministry: 산업통상부
   enabled: true
   type: generic_board
@@ -218,6 +235,7 @@
 - id: smtech
   name: 중소기업 기술개발사업 종합관리시스템 사업공고
   group: 중소벤처기업부
+  category: R&D
   ministry: 중소벤처기업부
   enabled: true
   type: generic_board
@@ -235,6 +253,7 @@
 - id: mss
   name: 중소벤처기업부 훈령·고시·공고
   group: 중소벤처기업부
+  category: 바우처
   ministry: 중소벤처기업부
   enabled: true
   type: generic_board
@@ -256,6 +275,7 @@
 - id: export_capability
   name: 수출지원센터 수출역량강화사업
   group: 수출지원
+  category: 바우처
   ministry: 중소벤처기업부
   enabled: false
   type: generic_board
@@ -266,6 +286,7 @@
 - id: export_center
   name: 중소기업수출지원센터
   group: 수출지원
+  category: 바우처
   ministry: 중소벤처기업부
   enabled: true
   type: generic_board
@@ -281,6 +302,7 @@
 - id: export_infra
   name: 수출지원기반활용사업
   group: 수출지원
+  category: 바우처
   ministry: 산업통상부
   enabled: true
   type: generic_board
@@ -300,6 +322,7 @@
 - id: sba
   name: SBA
   group: SBA
+  category: 바우처
   ministry: 서울특별시
   enabled: false
   note: "목록 데이터 주소가 이 프로그램의 요청을 거부(HTTP 400). 브라우저로 위장하는 우회는 하지 않음. 전용 어댑터는 준비됨"
@@ -307,3 +330,99 @@
   url: https://www.sba.seoul.kr/Pages/ContentsMenu/Company_Support.aspx?C=8D010DF4-6777-EC11-80E8-9418827691E2
   notice_type: 본공고
   options: {menu_id: 8D010DF4-6777-EC11-80E8-9418827691E2, max_pages: 3}
+
+# ───────────── 2026-11-11 추가: 기관 자체 입찰 게시판 ─────────────
+# 나라장터에 함께 올라오는 입찰은 공고명이 같으면 한 번만 보여줍니다(나라장터 쪽을 남김).
+- id: kisa_bid
+  name: KISA 입찰공고
+  group: KISA
+  category: 입찰
+  ministry: 과학기술정보통신부
+  enabled: true
+  type: generic_board
+  url: https://www.kisa.or.kr/403
+  notice_type: 본공고
+  selectors:
+    row: "table.tbl_board tbody tr"
+    title: "td.sbj a"
+    link: "td.sbj a@href"
+    date: "td.date"
+  options: {page_param: page, id_params: [postSeq]}
+
+- id: nipa_bid
+  name: NIPA 입찰공고
+  group: NIPA
+  category: 입찰
+  ministry: 과학기술정보통신부
+  enabled: true
+  type: generic_board
+  url: https://www.nipa.kr/home/2-3
+  notice_type: 본공고
+  selectors:
+    row: "table#datatable-default tbody tr"
+    title: "td.tl a"
+    link: "td.tl a@href"
+    date: "td:nth-of-type(6)"
+  options: {page_param: curPage}
+
+- id: klid_bid
+  name: KLID 입찰정보
+  group: KLID
+  category: 입찰
+  ministry: 행정안전부
+  enabled: true
+  type: generic_board
+  url: https://www.klid.or.kr/open/bbs.do?PID=contract
+  notice_type: 본공고
+  note: "한국지역정보개발원(지방정부 공통 정보시스템·보안 사업 발주). 첫 화면 20건만 확인"
+  selectors:
+    row: "div.bbsTable table tbody tr"
+    title: "td a"
+    link: "td a@onclick"
+    date: "td.tdPeriod"
+    deadline: "td.tdPeriod"
+  options:
+    link_regex: "footerOnDetail\\('([^']+)','(\\d+)'"
+    link_template: "https://www.klid.or.kr/open/selectBoardDetail.do?PID={1}&bbsSeq={2}"
+
+# ───────────── 2026-11-11 추가: 지원사업·R&D ─────────────
+- id: ultari_biz
+  name: 기술보호울타리 사업공고
+  group: 중소벤처기업부
+  category: 바우처
+  ministry: 중소벤처기업부
+  enabled: true
+  type: generic_board
+  url: https://www.ultari.go.kr/site/board/biz/nv_bizNoticeList.do?menuId=14
+  notice_type: 본공고
+  note: "중소기업 기술보호 바우처·기술유출방지시스템 구축 지원(보안 솔루션 공급기업 모집 포함)"
+  selectors:
+    row: "div.tb-wrap table tbody tr"
+    title: "a.tb-tit"
+    link: "a.tb-tit@onclick"
+    date: "td:nth-of-type(7)"
+  options:
+    link_regex: "goBbsView\\('([^']+)',\\s*'([^']+)',\\s*'(\\d+)'\\)"
+    link_template: "https://www.ultari.go.kr/site/board/biz/nv_bizNoticeView.do?menuId=14&bbsCode={1}&bsnsCode={2}&nttSn={3}"
+
+- id: seoul_rnd
+  name: 서울형 R&D 사업공고
+  group: SBA
+  category: R&D
+  ministry: 서울특별시
+  enabled: true
+  type: generic_board
+  url: https://seoul.rnbd.kr/client/c030100/c030100_00.jsp
+  notice_type: 본공고
+  note: "서울경제진흥원(SBA) 서울형 R&D·테스트베드 공고. 게시일 대신 접수 시작일을 기준으로 수집"
+  selectors:
+    row: "div.board_list table tbody tr"
+    title: "td.t1 a"
+    link: "td.t1 a@href"
+    date: "td:nth-of-type(3)"
+    deadline: "td:nth-of-type(3)"
+  options:
+    page_param: cPage
+    id_params: [seqNo]
+    title_remove: ["\\d{4}-\\d{2}-\\d{2}\\s*~\\s*\\d{4}-\\d{2}-\\d{2}"]
+

@@ -125,7 +125,7 @@ def test_normal_run_sends_individual_mails_and_updates_state(tmp_path, capsys):
     log = capsys.readouterr().out
     for secret in ALL_SECRETS:
         assert secret not in log                               # 로그에 주소·키 없음
-    assert "본인" in log and "| 나라장터 입찰공고 | g2b_bid | 성공 |" in log
+    assert "본인" in log and "| 나라장터 입찰공고 | g2b_bid | 입찰 | 성공 |" in log
 
 
 def test_second_run_same_week_does_not_resend(tmp_path):
@@ -232,8 +232,8 @@ def test_check_sources_reports_all_21(tmp_path, capsys):
     assert rc == 0
     log = capsys.readouterr().out
     assert log.count("\n| ") >= 21
-    assert "| IITP (현)사업공고 | iitp | 꺼짐 |" in log and "robots.txt" in log
-    assert "| 과학기술정보통신부 사업공고 | msit | 실패 |" in log
+    assert "| IITP (현)사업공고 | iitp | R&D | 꺼짐 |" in log and "robots.txt" in log
+    assert "| 과학기술정보통신부 사업공고 | msit | R&D | 실패 |" in log
     html = (tmp_path / "check_sources.html").read_text(encoding="utf-8")
     assert "출처 점검 결과" in html and "제로트러스트" in html      # 최근 공고 표시
     msgs = sent_messages()

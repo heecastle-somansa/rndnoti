@@ -29,6 +29,7 @@ class Category:
     name: str
     keywords: tuple[str, ...]
     exclude: tuple[str, ...] = ()
+    only_in: tuple[str, ...] = ()         # 이 공고 카테고리에서만 쓰는 분류 (비면 모든 카테고리)
 
 
 @dataclass(frozen=True)
@@ -47,11 +48,29 @@ class Group:
 
 
 @dataclass(frozen=True)
+class Track:
+    """공고 카테고리 (예: R&D / 입찰 / 바우처). 메일의 가장 큰 구획."""
+    name: str
+    label: str = ""                       # 메일에 보이는 이름
+    keywords: tuple[str, ...] = ()        # 공고명에 이 단어가 있으면 이 카테고리로 옮긴다
+    fixed: bool = False                   # true면 이 카테고리 출처의 공고는 다른 카테고리로 옮기지 않는다
+    dedupe_by_title: bool = False         # true면 기관이 달라도 공고명이 같으면 같은 공고로 본다(입찰)
+
+
+@dataclass(frozen=True)
 class GroupConfig:
     group_by: str                         # agency | ministry
     portal_group: str
     fallback_group: str
     groups: tuple[Group, ...]             # 순서 = 메일 섹션 순서
+    tracks: tuple[Track, ...] = ()        # 공고 카테고리. 순서 = 메일의 큰 구획 순서 (없으면 구획 없이 표시)
+
+    @property
+    def track_names(self) -> list[str]:
+        return [t.name for t in self.tracks]
+
+    def track(self, name: str) -> Track | None:
+        return next((t for t in self.tracks if t.name == name), None)
 
     @property
     def names(self) -> list[str]:
@@ -66,6 +85,7 @@ class SourceConfig:
     name: str
     group: str
     type: str
+    track: str = ""                                         # 공고 카테고리 (sources.yaml의 category)
     ministry: str = ""
     enabled: bool = True
     url: str = ""
@@ -122,6 +142,7 @@ def load_keywords(path: Path | None = None) -> KeywordConfig:
             name=str(name),
             keywords=keywords,
             exclude=_str_list(body.get("exclude"), f"{path.name} > {name} > exclude"),
+            only_in=_str_list(body.get("only_in"), f"{path.name} > {name} > only_in"),
         )
     return KeywordConfig(
         exclude=_str_list(data.get("exclude"), f"{path.name} > exclude"),
@@ -154,15 +175,32 @@ def load_groups(path: Path | None = None) -> GroupConfig:
     fallback = str(data.get("fallback_group", "기타 기관"))
     if fallback not in names:
         raise ConfigError(f"{path.name}: fallback_group '{fallback}'이 groups 목록에 없습니다")
+    tracks: list[Track] = []
+    for item in data.get("categories") or []:
+        if not isinstance(item, dict) or not item.get("name"):
+            raise ConfigError(f"{path.name}: categories의 각 항목에는 name이 있어야 합니다")
+        where = f"{path.name} > categories > {item['name']}"
+        unknown = set(item) - {"name", "label", "title_keywords", "fixed", "dedupe_by_title"}
+        if unknown:
+            raise ConfigError(f"{where}: 알 수 없는 항목입니다(오타 확인): {', '.join(sorted(unknown))}")
+        tracks.append(Track(
+            name=str(item["name"]), label=str(item.get("label") or item["name"]),
+            keywords=_str_list(item.get("title_keywords"), f"{where} > title_keywords"),
+            fixed=bool(item.get("fixed", False)), dedupe_by_title=bool(item.get("dedupe_by_title", False)),
+        ))
+    tnames = [t.name for t in tracks]
+    if len(set(tnames)) != len(tnames):
+        raise ConfigError(f"{path.name}: categories의 name이 중복됩니다")
     return GroupConfig(
         group_by=group_by,
         portal_group=str(data.get("portal_group", "통합포털")),
         fallback_group=fallback,
         groups=tuple(groups),
+        tracks=tuple(tracks),
     )
 
 
-_SOURCE_KEYS = {"id", "name", "group", "ministry", "enabled", "type", "url",
+_SOURCE_KEYS = {"id", "name", "group", "category", "ministry", "enabled", "type", "url",
                 "notice_type", "title_filter", "selectors", "options", "note"}
 
 
@@ -198,6 +236,12 @@ def load_sources(path: Path | None = None, groups: GroupConfig | None = None) ->
         group = str(item["group"])
         if groups and group != groups.portal_group and group not in groups.names:
             raise ConfigError(f"{where}: group '{group}'이 groups.yaml에 없습니다")
+        track = str(item.get("category") or "")
+        if groups and groups.tracks:
+            track = track or groups.tracks[0].name
+            if track not in groups.track_names:
+                raise ConfigError(f"{where}: category '{track}'이 groups.yaml의 categories에 없습니다 "
+                                  f"(가능: {' | '.join(groups.track_names)})")
         enabled = item.get("enabled", True)
         if not isinstance(enabled, bool):
             raise ConfigError(f"{where}: enabled는 true 또는 false여야 합니다")
@@ -205,7 +249,7 @@ def load_sources(path: Path | None = None, groups: GroupConfig | None = None) ->
         if not isinstance(selectors, dict):
             raise ConfigError(f"{where}: selectors 형식이 잘못됐습니다")
         sources.append(SourceConfig(
-            id=sid, name=str(item["name"]), group=group, type=stype,
+            id=sid, name=str(item["name"]), group=group, type=stype, track=track,
             ministry=str(item.get("ministry") or ""),
             enabled=enabled,
             url=str(item.get("url") or ""),
@@ -221,8 +265,14 @@ def load_sources(path: Path | None = None, groups: GroupConfig | None = None) ->
 def load_config(config_dir: Path | None = None) -> AppConfig:
     config_dir = config_dir or CONFIG_DIR
     groups = load_groups(config_dir / "groups.yaml")
+    keywords = load_keywords(config_dir / "keywords.yaml")
+    for cat in keywords.categories.values():
+        bad = [t for t in cat.only_in if t not in groups.track_names]
+        if bad:
+            raise ConfigError(f"keywords.yaml > {cat.name} > only_in: groups.yaml의 categories에 없는 이름입니다: "
+                              f"{', '.join(bad)} (가능: {' | '.join(groups.track_names)})")
     return AppConfig(
-        keywords=load_keywords(config_dir / "keywords.yaml"),
+        keywords=keywords,
         groups=groups,
         sources=load_sources(config_dir / "sources.yaml", groups),
     )

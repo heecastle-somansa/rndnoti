@@ -28,13 +28,14 @@
 ```json
 [
   {"name": "본인", "email": "me@example.com", "active": true,
-   "categories": ["망분리·VDI", "보안 일반"]},
+   "categories": ["망분리·VDI", "보안 일반", "바우처·인프라 지원"]},
   {"name": "지인", "email": "friend@example.com", "active": true,
-   "categories": ["생체인증·출입보안"]}
+   "categories": ["생체인증·출입보안"],
+   "source_categories": ["입찰"]}
 ]
 ```
 
-`categories`에는 [config/keywords.yaml](config/keywords.yaml)의 분류 이름을 글자 그대로 적습니다. Secrets는 저장 후 다시 볼 수 없으니 **구독자 목록 원본은 PC에 따로 보관**하세요.
+`categories`에는 [config/keywords.yaml](config/keywords.yaml)의 분류 이름을 글자 그대로 적습니다. `source_categories`는 선택 항목으로, 받을 공고 카테고리(`R&D`, `입찰`, `바우처`)만 고를 때 적습니다. Secrets는 저장 후 다시 볼 수 없으니 **구독자 목록 원본은 PC에 따로 보관**하세요.
 
 **3. 시험 실행** — 저장소 **[Actions] → R&D Noti weekly report → [Run workflow]** 에서 모드를 골라 아래 순서로 실행합니다.
 
@@ -53,7 +54,7 @@ GitHub 웹 화면에서 파일을 열고 **연필 아이콘(✏️)** → 수정
 | 바꾸려는 것 | 고칠 곳 |
 | --- | --- |
 | 분류·키워드·제외어 | [config/keywords.yaml](config/keywords.yaml) |
-| 출처 켜기/끄기, 주소 변경 | [config/sources.yaml](config/sources.yaml) (`enabled`, `url`) |
+| 출처 켜기/끄기, 주소 변경, 카테고리 | [config/sources.yaml](config/sources.yaml) (`enabled`, `url`, `category`) |
 | 메일 섹션(발주처 그룹) 이름·순서 | [config/groups.yaml](config/groups.yaml) |
 | 구독자 추가·수정·일시중지 | Secrets `SUBSCRIBERS_JSON` (전체를 다시 붙여넣기) |
 | 발신 계정 | Secrets `SMTP_USER`, `SMTP_PASSWORD` |
@@ -78,6 +79,7 @@ GitHub 웹 화면에서 파일을 열고 **연필 아이콘(✏️)** → 수정
 
 ## 알아둘 점
 
-- 현재 21개 출처 중 15곳을 수집합니다. robots.txt가 금지하거나 접속이 거부되는 6곳은 꺼 두었습니다. ([출처 현황](GUIDE.md#4-수집-출처-21곳-현황))
+- 메일은 **부처별 R&D / 나라장터·기관 입찰 / 바우처·지원사업** 세 카테고리로 나뉩니다. 구독자마다 받을 카테고리를 고를 수 있습니다. ([상세](GUIDE.md#공고-카테고리-rd--입찰--바우처))
+- 현재 26개 출처 중 20곳을 수집합니다. robots.txt가 금지하거나 접속이 거부되는 6곳은 꺼 두었습니다. ([출처 현황](GUIDE.md#4-수집-출처-현황))
 - 실행 기록과 미리보기 파일은 저장소에 쌓이지 않고 GitHub가 자동으로 지웁니다. 저장소에는 `state/` 파일 2개만 매주 덮어씁니다.
 - 인증키·메일 계정·구독자 주소는 Secrets에만 두며, 파일이나 로그에 남지 않습니다.

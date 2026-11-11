@@ -101,10 +101,10 @@ def collect(cfg: AppConfig, env: Mapping[str, str], since: date, until: date,
 
 
 def source_table(results: list[SourceResult]) -> str:
-    lines = ["| 출처 | id | 결과 | 건수 | 비고 |", "| --- | --- | --- | --- | --- |"]
+    lines = ["| 출처 | id | 카테고리 | 결과 | 건수 | 비고 |", "| --- | --- | --- | --- | --- | --- |"]
     for r in results:
         note = " / ".join([r.error or r.source.note, *r.warnings]).strip(" /").replace("|", "/")
-        lines.append(f"| {r.source.name} | {r.source.id} | {r.status} | {len(r.notices)} | {note} |")
+        lines.append(f"| {r.source.name} | {r.source.id} | {r.source.track} | {r.status} | {len(r.notices)} | {note} |")
     return "\n".join(lines)
 
 
@@ -186,7 +186,8 @@ def run_check_sources(cfg: AppConfig, env, today: date, out_dir: Path, *,
     write_summary(env, "## 출처 점검 결과\n\n" + table)
     color = {"성공": "#039855", "실패": "#d92d20", "꺼짐": "#667085"}
     rows = [{
-        "id": r.source.id, "name": r.source.name, "status": r.status, "color": color[r.status],
+        "id": r.source.id, "name": f"[{r.source.track}] {r.source.name}" if r.source.track else r.source.name,
+        "status": r.status, "color": color[r.status],
         "count": len(r.notices),
         "reason": " / ".join([r.error, *r.warnings] + (
             [f"최근 {CHECK_DAYS}일간 새 글이 없습니다. 게시판이 다른 주소로 옮겨졌는지 확인해 보세요"]
@@ -212,7 +213,7 @@ def _subscribers(cfg: AppConfig, env, dry_run: bool) -> list[Subscriber]:
         log("SUBSCRIBERS_JSON이 없어 '모든 분류를 구독하는 예시 구독자' 1명으로 미리보기를 만듭니다")
         raw = json.dumps([{"name": "미리보기_전체분류", "email": "preview@example.com", "active": True,
                            "categories": list(cfg.keywords.categories)}])
-    subs, warnings = load_subscribers(raw, cfg.keywords, {s.id for s in cfg.sources})
+    subs, warnings = load_subscribers(raw, cfg.keywords, {s.id for s in cfg.sources}, cfg.groups)
     for w in warnings:
         log(f"주의: {w}")
     return subs
@@ -249,7 +250,8 @@ def run_weekly(cfg: AppConfig, env, today: date, out_dir: Path, state_dir: Path,
 
     portal = {s.id for s in cfg.sources if s.group == cfg.groups.portal_group}
     pool = [n for r in results for n in r.notices]
-    pool = dedupe_cross_source(drop_expired(dedupe_same_uid(pool), today), portal)
+    title_only = {t.name for t in cfg.groups.tracks if t.dedupe_by_title}
+    pool = dedupe_cross_source(drop_expired(dedupe_same_uid(pool), today), portal, title_only)
     seen = st.load_seen(state_dir / "seen.json")
     log(f"정리된 공고 {len(pool)}건, 구독자 {len(subs)}명")
 

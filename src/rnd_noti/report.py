@@ -53,6 +53,9 @@ class Section:
     name: str
     cards: list[Card]
     rest: list[Card]
+    track_label: str = ""               # 공고 카테고리 이름 (예: 부처별 R&D 공고)
+    track_count: int = 0                # 그 카테고리의 전체 공고 수
+    first_in_track: bool = False        # 카테고리의 첫 섹션이면 그 위에 카테고리 띠를 그린다
 
     @property
     def count(self) -> int:
@@ -122,16 +125,26 @@ def build_report(items: list[Item], categories: list[str], groups: GroupConfig, 
                  since: date, until: date, failed_sources: list[str]) -> Report:
     order, to_section = _section_order(groups)
     fallback = to_section.get(groups.fallback_group, groups.fallback_group)
-    buckets: dict[str, list[Card]] = {}
+    # 큰 구획 = 공고 카테고리(R&D / 입찰 / 바우처), 그 안에서 발주처 그룹별 섹션
+    tracks = [(t.name, t.label) for t in groups.tracks] or [("", "")]
+    first_track = tracks[0][0]
+    buckets: dict[tuple[str, str], list[Card]] = {}
     for item in items:
         key = (item.notice.ministry or fallback) if groups.group_by == "ministry" \
             else to_section.get(item.notice.agency_group, fallback)
-        buckets.setdefault(key, []).append(make_card(item, today))
+        track = item.notice.track if item.notice.track in dict(tracks) else first_track
+        buckets.setdefault((track, key), []).append(make_card(item, today))
     sections = []
-    for name in order + [k for k in buckets if k not in order]:
-        cards = sorted(buckets.get(name, []), key=lambda c: c.sort_key)
-        if cards:
-            sections.append(Section(name, cards[:CARDS_PER_SECTION], cards[CARDS_PER_SECTION:]))
+    for track, label in tracks:
+        names = [k for t, k in buckets if t == track]
+        total = sum(len(buckets[(track, k)]) for k in names)
+        first = True
+        for name in order + [k for k in names if k not in order]:
+            cards = sorted(buckets.get((track, name), []), key=lambda c: c.sort_key)
+            if cards:
+                sections.append(Section(name, cards[:CARDS_PER_SECTION], cards[CARDS_PER_SECTION:],
+                                        track_label=label, track_count=total, first_in_track=first))
+                first = False
 
     fresh = [i for i in items if i.kind != KIND_REMINDER]
     new_pre = sum(1 for i in fresh if i.notice.notice_type == NOTICE_TYPE_PRE)

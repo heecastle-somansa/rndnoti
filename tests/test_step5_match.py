@@ -203,3 +203,50 @@ def test_load_subscribers_errors_hide_email(raw, word):
     with pytest.raises(SubscriberError, match=word) as exc:
         load_subscribers(raw, KW, set(SRC))
     assert "a@b.kr" not in str(exc.value) and "not-mail" not in str(exc.value)
+
+
+# ---------- 공고 카테고리 (R&D / 입찰 / 바우처) ----------
+
+def _n(uid, source, title, **kw):
+    return normalize(Notice(uid=uid, source=source, title=title, **kw), SRC[source], GROUPS)
+
+
+def test_track_comes_from_source_and_title_can_move_it():
+    assert _n("a", "iris", "2027년 사이버보안 신규사업 공고", org="정보통신기획평가원").track == "R&D"
+    assert _n("b", "bizinfo", "2027년 데이터 바우처 지원사업 수요기업 모집").track == "바우처"
+    assert _n("c", "bizinfo", "중소기업 기술개발사업 시행계획 공고").track == "R&D"          # 공고명으로 이동
+    assert _n("d", "nipa", "AI 바우처 지원사업 수요기업 모집").track == "바우처"            # R&D 출처 → 바우처
+    assert _n("e", "kisa", "정보보호 컨설팅 용역 입찰공고").track == "입찰"                 # 공지 게시판의 입찰
+    assert _n("f", "g2b_bid", "정보보호 R&D 지원사업 관리 용역").track == "입찰"            # 입찰 출처는 고정
+
+
+def test_only_in_category_applies_to_its_track_only():
+    chosen = ["보안 일반", "바우처·인프라 지원"]
+    assert match_categories("GPU 서버 구매", chosen, KW, "입찰") == {}                       # 입찰에서는 GPU 무시
+    assert match_categories("GPU 활용지원 사업 참여기업 모집", chosen, KW, "바우처") == {"바우처·인프라 지원": ["GPU"]}
+    assert "보안 일반" in match_categories("정보보호 바우처 지원", chosen, KW, "바우처")     # 보안 분류는 어디서나
+
+
+def test_subscriber_can_pick_source_categories():
+    pool = [_n("r", "iris", "제로트러스트 기술개발 과제 공고", org="정보통신기획평가원"),
+            _n("b", "g2b_bid", "제로트러스트 보안체계 구축"),
+            _n("v", "bizinfo", "정보보호 해외진출 지원사업 참여기업 모집")]
+    raw = json.dumps([{"name": "입찰만", "email": "a@x.example", "categories": ["보안 일반"],
+                       "source_categories": ["입찰"]},
+                      {"name": "전체", "email": "b@x.example", "categories": ["보안 일반"]},
+                      {"name": "오타", "email": "c@x.example", "categories": ["보안 일반"],
+                       "source_categories": ["입찰", "없는것"]}])
+    subs, warnings = load_subscribers(raw, KW, set(SRC), GROUPS)
+    picked = {s.name: [i.notice.uid for i in select_for_subscriber(pool, {}, s, KW, TODAY)] for s in subs}
+    assert picked == {"입찰만": ["b"], "전체": ["r", "b", "v"], "오타": ["b"]}
+    assert any("없는것" in w for w in warnings)
+
+
+def test_same_bid_on_g2b_and_agency_board_is_shown_once():
+    g2b = _n("g2b:1", "g2b_bid", "2027년 SW자산뱅크 통합운영 유지관리 용역", budget_krw=500_000_000,
+             deadline=date(2026, 11, 30))
+    board = _n("nipa_bid:1", "nipa_bid", "[조달청 입찰공고] 2027년 SW자산뱅크 통합운영 유지관리 용역")
+    other = _n("kisa_bid:1", "kisa_bid", "[사전규격공개] 지능형 포렌식센터 스토리지 구매")
+    kept = dedupe_cross_source([board, g2b, other], {"iris"}, {"입찰"})
+    assert [n.uid for n in kept] == ["g2b:1", "kisa_bid:1"]              # 금액 있는 나라장터 쪽을 남김
+    assert len(dedupe_cross_source([board, g2b], {"iris"})) == 2          # 옵션이 없으면 예전처럼 기관별 비교
