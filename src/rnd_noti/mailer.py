@@ -43,16 +43,44 @@ class MailSettings:
             raise MailError("SMTP_PORT는 숫자여야 합니다(예: 587)") from None
         # Secrets에 붙여넣을 때 끝에 줄바꿈·빈칸이 섞여 들어가는 일이 흔해서 앞뒤 공백은 떼고 쓴다
         user = env["SMTP_USER"].strip()
+        if not is_address(user) and len(find_addresses(user)) == 1:
+            user = find_addresses(user)[0]             # 따옴표·이름이 섞여 있어도 주소 하나면 그것을 쓴다
         reply_to = (env.get("MAIL_REPLY_TO") or "").strip()
         for name, value in (("SMTP_USER", user), ("MAIL_REPLY_TO", reply_to)):
             if value and not is_address(value):
-                raise MailError(f"{name} 값이 메일 주소 형식이 아닙니다(중간의 줄바꿈·빈칸·오타 확인)")
+                raise MailError(f"{name} 값이 메일 주소 형식이 아닙니다({describe_bad_value(value)})")
         return cls(
             host=(env.get("SMTP_HOST") or "").strip() or "smtp.gmail.com", port=port,
             user=user, password=env["SMTP_PASSWORD"].strip(),
             from_name=(env.get("MAIL_FROM_NAME") or "").strip() or "R&D Noti",
             reply_to=reply_to,
         )
+
+
+_ADDRESS_ANYWHERE = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+")
+
+
+def find_addresses(value: str) -> list[str]:
+    """값 안에서 메일 주소만 골라낸다(중복 제거).
+
+    Secrets에 주소를 넣을 때 따옴표·꺾쇠·이름·줄바꿈이 섞이거나 여러 주소를 적는 경우가 있어,
+    형식이 조금 달라도 주소를 찾아서 쓴다.  예) '"a@x.com"', '홍길동 <a@x.com>', 'a@x.com, b@x.com'
+    """
+    out: list[str] = []
+    for addr in _ADDRESS_ANYWHERE.findall(value or ""):
+        if addr not in out:
+            out.append(addr)
+    return out
+
+
+def describe_bad_value(value: str) -> str:
+    """주소를 못 찾았을 때, 값 자체는 드러내지 않고 원인을 짐작할 단서만 알려 준다."""
+    hints = [f"글자 수 {len(value)}", "'@' 있음" if "@" in value else "'@' 없음"]
+    if any(ord(c) > 127 for c in value):
+        hints.append("한글 등 영문이 아닌 글자 포함")
+    if value.lstrip().startswith(("[", "{")):
+        hints.append("[ 또는 { 로 시작(구독자 목록을 넣은 것은 아닌지 확인)")
+    return ", ".join(hints)
 
 
 def is_address(value: str) -> bool:

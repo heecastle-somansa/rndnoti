@@ -187,4 +187,4 @@ def test_all_21_sources_have_decision():
         elif s.type == "generic_board":
             assert s.url and s.selectors.get("row"), f"{s.id}: 선택자가 없습니다"
     assert {s.id for s in SOURCES.values() if not s.enabled} == {
-        "ntis", "iitp", "gpu", "etri", "export_capability", "sba"}
+        "ntis", "iitp", "gpu", "etri", "export_capability", "sba", "klid_bid"}

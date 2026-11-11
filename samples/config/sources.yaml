@@ -370,11 +370,11 @@
   group: KLID
   category: 입찰
   ministry: 행정안전부
-  enabled: true
+  enabled: false
   type: generic_board
   url: https://www.klid.or.kr/open/bbs.do?PID=contract
   notice_type: 본공고
-  note: "한국지역정보개발원(지방정부 공통 정보시스템·보안 사업 발주). 첫 화면 20건만 확인"
+  note: "한국 IP에서는 수집되지만 GitHub 서버(해외 IP)에서는 접속 시간 초과. 해외 접속 차단으로 보여 꺼 둠. KLID 입찰은 나라장터 수집분으로 확인"
   selectors:
     row: "div.bbsTable table tbody tr"
     title: "td a"

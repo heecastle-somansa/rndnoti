@@ -359,9 +359,21 @@ def test_secrets_with_trailing_newline_still_work(tmp_path):
     assert "sender@gmail.example" in sent_messages()[0]["From"]
 
 
-def test_broken_admin_address_is_reported_not_crashed(tmp_path, capsys):
-    env = dict(ENV, ADMIN_EMAIL="admin@corp.example\nother@corp.example")
+def test_admin_address_with_quotes_names_or_several_addresses(tmp_path):
+    for raw, expected in [('"admin@corp.example"', ["admin@corp.example"]),
+                          ("관리자 <admin@corp.example>", ["admin@corp.example"]),
+                          ("admin@corp.example\nother@corp.example", ["admin@corp.example", "other@corp.example"]),
+                          ("admin@corp.example, admin@corp.example", ["admin@corp.example"])]:
+        FakeSMTP.instances = []
+        rc = run_check_sources(CFG, dict(ENV, ADMIN_EMAIL=raw), TODAY, tmp_path,
+                               adapter_factory=adapters(), mailer_factory=mailer())
+        assert rc == 0 and [m["To"] for m in sent_messages()] == expected      # 한 통에 한 사람
+
+
+def test_admin_value_without_address_is_explained_not_crashed(tmp_path, capsys):
+    env = dict(ENV, ADMIN_EMAIL='[{"name": "본인"}]')
     rc = run_check_sources(CFG, env, TODAY, tmp_path, adapter_factory=adapters(), mailer_factory=mailer())
     out = capsys.readouterr().out
     assert rc == 1 and sent_messages() == []
-    assert "메일 주소 형식이 아닙니다" in out and "admin@corp.example" not in out
+    assert "메일 주소를 찾지 못했습니다" in out and "'@' 없음" in out and "[ 또는 {" in out
+    assert "본인" not in out.split("메일 주소를 찾지 못했습니다")[1]            # 값 자체는 로그에 남기지 않음

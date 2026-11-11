@@ -21,7 +21,7 @@ from typing import Callable, Mapping
 
 from . import state as st
 from .config import AppConfig, ConfigError, SourceConfig, load_config
-from .mailer import MailError, Mailer, MailSettings, build_message
+from .mailer import MailError, Mailer, MailSettings, build_message, describe_bad_value, find_addresses
 from .match import (Item, Subscriber, dedupe_cross_source, dedupe_same_uid, drop_expired,
                     select_for_subscriber, update_seen)
 from .models import Notice
@@ -53,6 +53,7 @@ def log(msg: str = "") -> None:
 
 def _secrets(env: Mapping[str, str]) -> list[str]:
     values = [env.get(k, "") for k in SECRET_KEYS]
+    values += find_addresses(env.get("ADMIN_EMAIL", "")) + find_addresses(env.get("SMTP_USER", ""))
     try:
         values += [s.get("email", "") for s in json.loads(env.get("SUBSCRIBERS_JSON") or "[]")]
     except (ValueError, AttributeError):
@@ -122,15 +123,21 @@ def _safe_name(name: str) -> str:
 # ---------- 운영자 알림 ----------
 
 def send_admin(env: Mapping[str, str], subject: str, html: str, text: str, mailer_factory=Mailer) -> bool:
-    admin = (env.get("ADMIN_EMAIL") or "").strip()
-    if not admin:
+    raw = (env.get("ADMIN_EMAIL") or "").strip()
+    if not raw:
         log("ADMIN_EMAIL이 없어 운영자 알림 메일을 보내지 않았습니다")
+        return False
+    admins = find_addresses(raw)          # 따옴표·이름이 섞였거나 여러 주소를 적어도 주소만 골라 쓴다
+    if not admins:
+        log(f"운영자 알림 메일 발송 실패: ADMIN_EMAIL에서 메일 주소를 찾지 못했습니다 ({describe_bad_value(raw)}). "
+            "Secrets의 ADMIN_EMAIL에 주소만(예: name@company.com) 다시 넣어 주세요")
         return False
     try:
         settings = MailSettings.from_env(env)
         with mailer_factory(settings) as m:
-            m.send(build_message(settings, admin, subject, html, text))
-        log("운영자 알림 메일 발송 완료")
+            for admin in admins:           # 운영자가 여럿이어도 한 통에 한 사람씩
+                m.send(build_message(settings, admin, subject, html, text))
+        log(f"운영자 알림 메일 발송 완료 ({len(admins)}명)")
         return True
     except MailError as exc:
         log(f"운영자 알림 메일 발송 실패: {exc}")
