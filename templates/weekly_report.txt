@@ -1,0 +1,39 @@
+{{ r.week }}
+{{ r.heading }}
+분류/키워드 : {{ r.categories }}
+
+신규 공고 {{ r.new_main }} | 사전규격/수요조사 {{ r.new_pre }} | 마감 임박 {{ r.urgent }}
+{% if not r.sections %}
+
+이번 주 신규 공고 없음
+{% endif %}
+{% for s in r.sections %}
+
+■ {{ s.name }} ({{ s.count }}건)
+{% for c in s.cards %}
+
+{% for text, color in c.badges %}[{{ text }}] {% endfor %}{{ c.title }}  [{{ c.dday_text }}]
+{% if c.meta %}  {{ c.meta }}
+{% endif %}
+{% if c.summary %}  {{ c.summary }}
+{% endif %}
+{% if c.keywords %}  매칭: {{ c.keywords }}
+{% endif %}
+  원문 보기: {{ c.url }}
+{% endfor %}
+{% if s.rest %}
+
+  그 외
+{% for c in s.rest %}
+  - {% for text, color in c.badges %}[{{ text }}] {% endfor %}{{ c.title }}{% if c.org %} · {{ c.org }}{% endif %}{% if c.amount %} · {{ c.amount }}{% endif %} · {{ c.dday_text }}
+    {{ c.url }}
+{% endfor %}
+{% endif %}
+{% endfor %}
+
+--
+분류/키워드 변경이나 수신 중단은 회신으로 알려주세요.
+수집 기간 {{ r.period }}
+{% if r.failed_sources %}
+수집 실패 출처: {{ r.failed_sources | join(", ") }}
+{% endif %}

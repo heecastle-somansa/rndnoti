@@ -1,0 +1,128 @@
+{#- R&D Noti 주간 메일 (개발요청서 5장)
+    Outlook 데스크톱(Word 엔진) 호환: 표 기반 레이아웃, 인라인 CSS, 최대 폭 640px,
+    flex/grid/position/float 금지, 외부 이미지·웹폰트·아이콘 폰트 금지, 배경색은 bgcolor도 함께 지정 -#}
+{% set F %}font-family:'맑은 고딕','Malgun Gothic',Arial,sans-serif;{% endset %}
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<meta name="supported-color-schemes" content="light">
+<title>{{ r.subject }}</title>
+</head>
+<body style="margin:0; padding:0; background-color:#f2f4f7;" bgcolor="#f2f4f7">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#f2f4f7" style="background-color:#f2f4f7;">
+<tr><td align="center" style="padding:20px 8px;">
+<!--[if mso]><table role="presentation" width="640" cellpadding="0" cellspacing="0" border="0"><tr><td><![endif]-->
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#ffffff" style="max-width:640px; width:100%; background-color:#ffffff; border:1px solid #e4e7ec;">
+
+  {# ── 머리말: 주차 · 제목줄 · 분류/키워드 ── #}
+  <tr><td style="padding:24px 24px 8px 24px; {{ F }}">
+    <div style="{{ F }} font-size:13px; color:#475467; font-weight:bold;">{{ r.week }}</div>
+    <div style="{{ F }} font-size:21px; line-height:30px; color:#101828; font-weight:bold; padding-top:4px;">{{ r.heading }}</div>
+    <div style="{{ F }} font-size:13px; line-height:20px; color:#475467; padding-top:6px;">분류/키워드 : {{ r.categories }}</div>
+  </td></tr>
+
+  {# ── 요약 카드 3개 (모바일에서도 3칸 유지) ── #}
+  <tr><td style="padding:12px 18px 8px 18px;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+      <tr>
+        {% for label, value, color in [("신규 공고", r.new_main, "#101828"), ("사전규격/수요조사", r.new_pre, "#101828"), ("마감 임박", r.urgent, RED)] %}
+        <td width="33%" valign="top" style="padding:0 6px;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#f9fafb" style="background-color:#f9fafb; border:1px solid #eaecf0;">
+            <tr><td align="center" style="padding:12px 4px 2px 4px; {{ F }} font-size:12px; color:#475467;">{{ label }}</td></tr>
+            <tr><td align="center" style="padding:0 4px 12px 4px; {{ F }} font-size:24px; line-height:30px; font-weight:bold; color:{{ color }};">{{ value }}</td></tr>
+          </table>
+        </td>
+        {% endfor %}
+      </tr>
+    </table>
+  </td></tr>
+
+  {% if not r.sections %}
+  <tr><td style="padding:24px; {{ F }} font-size:14px; color:#475467;" align="center">이번 주 신규 공고 없음</td></tr>
+  {% endif %}
+
+  {# ── 발주처별 공고 섹션 ── #}
+  {% for s in r.sections %}
+  <tr><td style="padding:20px 24px 6px 24px; {{ F }}">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+      <tr><td style="{{ F }} font-size:16px; font-weight:bold; color:#101828; padding-bottom:6px; border-bottom:2px solid #101828;">{{ s.name }} ({{ s.count }}건)</td></tr>
+    </table>
+  </td></tr>
+
+  {% for c in s.cards %}
+  <tr><td style="padding:6px 24px;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border:1px solid #e4e7ec;">
+      {# 1행: 배지 + 공고명 / D-day #}
+      <tr><td style="padding:12px 12px 4px 12px;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+          <tr>
+            <td valign="top" style="{{ F }}">
+              {% if c.badges %}
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:4px;"><tr>
+                {% for text, color in c.badges %}
+                <td bgcolor="{{ color }}" style="background-color:{{ color }}; {{ F }} font-size:11px; line-height:16px; color:#ffffff; font-weight:bold; padding:1px 6px; border-radius:3px;">{{ text }}</td>
+                <td width="4" style="font-size:1px; line-height:1px;">&nbsp;</td>
+                {% endfor %}
+              </tr></table>
+              {% endif %}
+              <a href="{{ c.url }}" style="{{ F }} font-size:15px; line-height:22px; font-weight:bold; color:#101828; text-decoration:none;">{{ c.title }}</a>
+            </td>
+            <td width="8" style="font-size:1px;">&nbsp;</td>
+            <td valign="top" align="right" width="78">
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0" align="right"><tr>
+                <td bgcolor="{{ c.dday_color }}" align="center" style="background-color:{{ c.dday_color }}; {{ F }} font-size:12px; line-height:18px; color:#ffffff; font-weight:bold; padding:2px 8px; border-radius:3px; white-space:nowrap;">{{ c.dday_text }}</td>
+              </tr></table>
+            </td>
+          </tr>
+        </table>
+      </td></tr>
+      {# 2행: 기관 · 금액 · 계약/공고 유형 #}
+      {% if c.meta %}
+      <tr><td style="padding:2px 12px; {{ F }} font-size:13px; line-height:20px; color:#475467;">{{ c.meta }}</td></tr>
+      {% endif %}
+      {# 3행: AI 요약 (2단계부터. 1단계는 값이 비어 있어 줄을 출력하지 않음) #}
+      {% if c.summary %}
+      <tr><td style="padding:2px 12px; {{ F }} font-size:13px; line-height:20px; color:#344054;">{{ c.summary }}</td></tr>
+      {% endif %}
+      {# 4행: 매칭 키워드 · 원문 보기 #}
+      <tr><td style="padding:2px 12px 12px 12px; {{ F }} font-size:12px; line-height:18px; color:#667085;">
+        {% if c.keywords %}매칭: {{ c.keywords }} · {% endif %}<a href="{{ c.url }}" style="{{ F }} color:#1d4ed8; text-decoration:underline;">원문 보기</a>
+      </td></tr>
+    </table>
+  </td></tr>
+  {% endfor %}
+
+  {# 섹션당 카드 5개 초과분: 한 줄 목록 (공고명 · 기관 · 금액 · D-day) #}
+  {% if s.rest %}
+  <tr><td style="padding:4px 24px 6px 24px;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+      {% for c in s.rest %}
+      <tr><td style="padding:5px 0; border-bottom:1px solid #f2f4f7; {{ F }} font-size:13px; line-height:20px; color:#344054;">
+        {% for text, color in c.badges %}<span style="color:{{ color }}; font-weight:bold;">[{{ text }}]</span> {% endfor %}<a href="{{ c.url }}" style="{{ F }} color:#1d4ed8; text-decoration:underline;">{{ c.title }}</a>{% if c.org %} · {{ c.org }}{% endif %}{% if c.amount %} · {{ c.amount }}{% endif %} · <span style="color:{{ c.dday_color }}; font-weight:bold;">{{ c.dday_text }}</span>
+      </td></tr>
+      {% endfor %}
+    </table>
+  </td></tr>
+  {% endif %}
+  {% endfor %}
+
+  {# ── 푸터 ── #}
+  <tr><td style="padding:24px; {{ F }}">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+      <tr><td style="border-top:1px solid #e4e7ec; padding-top:14px; {{ F }} font-size:13px; line-height:20px; color:#475467;">분류/키워드 변경이나 수신 중단은 회신으로 알려주세요.</td></tr>
+      <tr><td style="padding-top:4px; {{ F }} font-size:11px; line-height:16px; color:#98a2b3;">수집 기간 {{ r.period }}</td></tr>
+      {% if r.failed_sources %}
+      <tr><td style="padding-top:4px; {{ F }} font-size:11px; line-height:16px; color:#b42318;">수집 실패 출처: {{ r.failed_sources | join(", ") }}</td></tr>
+      {% endif %}
+    </table>
+  </td></tr>
+
+</table>
+<!--[if mso]></td></tr></table><![endif]-->
+</td></tr>
+</table>
+</body>
+</html>
