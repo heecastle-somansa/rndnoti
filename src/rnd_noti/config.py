@@ -73,6 +73,7 @@ class SourceConfig:
     title_filter: tuple[str, ...] = ()
     selectors: dict[str, str] = field(default_factory=dict)
     options: dict[str, Any] = field(default_factory=dict)   # 어댑터별 추가 설정
+    note: str = ""                                          # 사람이 읽는 메모
 
 
 @dataclass(frozen=True)
@@ -162,7 +163,7 @@ def load_groups(path: Path | None = None) -> GroupConfig:
 
 
 _SOURCE_KEYS = {"id", "name", "group", "ministry", "enabled", "type", "url",
-                "notice_type", "title_filter", "selectors", "options"}
+                "notice_type", "title_filter", "selectors", "options", "note"}
 
 
 def load_sources(path: Path | None = None, groups: GroupConfig | None = None) -> tuple[SourceConfig, ...]:
@@ -212,6 +213,7 @@ def load_sources(path: Path | None = None, groups: GroupConfig | None = None) ->
             title_filter=_str_list(item.get("title_filter"), f"{where} > title_filter"),
             selectors={str(k): str(v) for k, v in selectors.items()},
             options=dict(item.get("options") or {}),
+            note=str(item.get("note") or ""),
         ))
     return tuple(sources)
 

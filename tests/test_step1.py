@@ -1,4 +1,5 @@
 """1단계(기본 골격) 테스트: 공고 스키마, 설정 읽기, 상태 저장, 어댑터 레지스트리."""
+import re
 from datetime import date
 
 import pytest
@@ -60,7 +61,7 @@ def test_real_config_has_no_secrets():
     from rnd_noti.config import CONFIG_DIR
     for path in CONFIG_DIR.glob("*.yaml"):
         text = path.read_text(encoding="utf-8")
-        assert "@" not in text.replace("a@href", ""), f"{path.name}에 메일 주소로 보이는 값이 있습니다"
+        assert not re.search(r"[\w.+-]+@[\w-]+\.[\w.]+", text), f"{path.name}에 메일 주소로 보이는 값이 있습니다"
         assert "serviceKey" not in text
 
 

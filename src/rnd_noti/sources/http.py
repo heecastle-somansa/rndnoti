@@ -48,13 +48,21 @@ class HttpClient:
         self._called = False
 
     def get(self, url: str, params: dict[str, Any] | None = None) -> requests.Response:
+        return self._request("get", url, params=params)
+
+    def post(self, url: str, data: dict[str, Any] | None = None, *,
+             json: Any = None, headers: dict[str, str] | None = None) -> requests.Response:
+        return self._request("post", url, data=data, json=json, headers=headers)
+
+    def _request(self, method: str, url: str, **kwargs: Any) -> requests.Response:
+        kwargs = {k: v for k, v in kwargs.items() if v is not None}
         last_error = ""
         for attempt in range(1, self.retries + 1):
             if self._called:
                 self._sleep(self.delay * (attempt if attempt > 1 else 1))
             self._called = True
             try:
-                resp = self.session.get(url, params=params, timeout=self.timeout)
+                resp = getattr(self.session, method)(url, timeout=self.timeout, **kwargs)
                 if resp.status_code >= 500 or resp.status_code == 429:
                     last_error = f"서버 응답 {resp.status_code}"
                     continue

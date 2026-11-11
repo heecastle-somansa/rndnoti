@@ -5,5 +5,5 @@ description = "나라장터·정부 R&D 공고를 매주 수집해 구독자별 
 requires-python = ">=3.12"
 
 [tool.pytest.ini_options]
-pythonpath = ["src"]
+pythonpath = ["src", "."]
 testpaths = ["tests"]
