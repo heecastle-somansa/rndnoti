@@ -3,6 +3,7 @@
     python -m rnd_noti.main --mode normal          정상: 메일 발송 + 상태 갱신
     python -m rnd_noti.main --mode dry-run         미리보기: HTML 파일만 저장, 발송·상태 갱신 없음
     python -m rnd_noti.main --mode check_sources   출처 점검: 출처별 수집 결과만 운영자에게
+    python -m rnd_noti.main --mode validate        설정 검사: config/*.yaml 형식만 확인 (접속·발송 없음)
 
 비밀값은 환경변수(GitHub Secrets)에서 읽는다. 로그에는 구독자 name만 쓴다.
 """
@@ -19,13 +20,12 @@ from pathlib import Path
 from typing import Callable, Mapping
 
 from . import state as st
-from .config import AppConfig, SourceConfig, load_config
+from .config import AppConfig, ConfigError, SourceConfig, load_config
 from .mailer import MailError, Mailer, MailSettings, build_message
 from .match import (Item, Subscriber, dedupe_cross_source, dedupe_same_uid, drop_expired,
                     select_for_subscriber, update_seen)
 from .models import Notice
 from .normalize import normalize, passes_title_filter
-from .preview import SAMPLE
 from .report import build_report, render, render_named
 from .sources.base import SourceError
 from .sources.http import mask
@@ -159,8 +159,9 @@ def run_check_sources(cfg: AppConfig, env, today: date, out_dir: Path, *,
 def _subscribers(cfg: AppConfig, env, dry_run: bool) -> list[Subscriber]:
     raw = env.get("SUBSCRIBERS_JSON", "")
     if not raw and dry_run:
-        log("SUBSCRIBERS_JSON이 없어 미리보기용 예시 구독자(본인·지인)로 만듭니다")
-        raw = json.dumps(json.loads(SAMPLE.read_text(encoding="utf-8"))["subscribers"])
+        log("SUBSCRIBERS_JSON이 없어 '모든 분류를 구독하는 예시 구독자' 1명으로 미리보기를 만듭니다")
+        raw = json.dumps([{"name": "미리보기_전체분류", "email": "preview@example.com", "active": True,
+                           "categories": list(cfg.keywords.categories)}])
     subs, warnings = load_subscribers(raw, cfg.keywords, {s.id for s in cfg.sources})
     for w in warnings:
         log(f"주의: {w}")
@@ -251,7 +252,7 @@ def run_weekly(cfg: AppConfig, env, today: date, out_dir: Path, state_dir: Path,
 def main(argv: list[str] | None = None) -> int:
     sys.stdout.reconfigure(encoding="utf-8")
     p = argparse.ArgumentParser(description="R&D Noti 주간 공고 메일")
-    p.add_argument("--mode", choices=["normal", "dry-run", "check_sources"],
+    p.add_argument("--mode", choices=["normal", "dry-run", "check_sources", "validate"],
                    default=os.environ.get("RUN_MODE") or "dry-run")
     p.add_argument("--today", help="기준일 YYYY-MM-DD (테스트용, 기본은 한국 시간 오늘)")
     p.add_argument("--out", default=str(ROOT / "output"))
@@ -259,7 +260,23 @@ def main(argv: list[str] | None = None) -> int:
     env = dict(os.environ)
     mask_in_actions(env)
     today = date.fromisoformat(args.today) if args.today else st.today_kst()
-    cfg = load_config()
+    try:
+        cfg = load_config()
+    except ConfigError as exc:
+        # 설정 파일(config/*.yaml)을 잘못 고친 경우: 무엇이 틀렸는지 로그·요약·운영자 메일로 알린다
+        log(f"설정 파일 오류: {exc}")
+        write_summary(env, f"## 설정 파일 오류\n\n{exc}")
+        if args.mode == "normal":
+            admin_error(env, "설정 파일 오류", [str(exc), "config/ 폴더의 파일을 고친 뒤 다시 실행하세요."])
+        return 1
+    if args.mode == "validate":
+        on = sum(1 for s in cfg.sources if s.enabled)
+        words = sum(len(c.keywords) for c in cfg.keywords.categories.values())
+        msg = (f"설정 파일 정상: 출처 {len(cfg.sources)}곳(켜짐 {on}), "
+               f"분류 {len(cfg.keywords.categories)}개, 키워드 {words}개")
+        log(msg)
+        write_summary(env, "## " + msg)
+        return 0
     out = Path(args.out)
     if args.mode == "check_sources":
         return run_check_sources(cfg, env, today, out)

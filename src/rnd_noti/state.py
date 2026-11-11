@@ -91,6 +91,10 @@ def save_seen(seen: dict[str, SeenEntry], path: Path | None = None) -> None:
 
 
 def prune_seen(seen: dict[str, SeenEntry], today: date) -> dict[str, SeenEntry]:
-    """처음 보낸 지 90일이 지난 항목을 지운다(F13)."""
+    """처음 보낸 지 90일이 지난 항목을 지운다(F13). 파일이 끝없이 커지지 않게 하는 장치.
+
+    단, 아직 마감 전인 공고는 남긴다(마감 임박 리마인드에 필요).
+    """
     cutoff = today - timedelta(days=SEEN_KEEP_DAYS)
-    return {uid: e for uid, e in seen.items() if e.first_sent >= cutoff}
+    return {uid: e for uid, e in seen.items()
+            if e.first_sent >= cutoff or (e.notice.deadline and e.notice.deadline >= today)}

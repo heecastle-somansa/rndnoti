@@ -1,0 +1,53 @@
+# ※ 테스트·샘플 미리보기 전용 고정 사본입니다. 운영 설정은 저장소 맨 위 config/ 폴더에서 고치세요.
+# 발주처 그룹 설정 (개발요청서 3.2)
+# - groups의 순서가 곧 메일 섹션 순서입니다.
+# - aliases: 통합포털(IRIS·NTIS·기업마당) 공고의 공고기관명에 이 글자가 들어 있으면 그 그룹으로 배정합니다.
+# - 맞는 그룹이 없으면 fallback_group(기타 기관)에 들어갑니다.
+
+group_by: agency            # agency(기관별, 기본) | ministry(소관 부처별)
+portal_group: 통합포털       # sources.yaml에서 group이 이 값이면 공고기관명으로 재분류
+fallback_group: 기타 기관
+
+groups:
+  - name: 나라장터
+    ministry: 나라장터
+    aliases: []
+  - name: 과학기술정보통신부
+    ministry: 과학기술정보통신부
+    aliases: [과학기술정보통신부, 과기정통부]
+  - name: IITP
+    ministry: 과학기술정보통신부
+    aliases: [IITP, 정보통신기획평가원]
+  - name: NIPA
+    ministry: 과학기술정보통신부
+    aliases: [NIPA, 정보통신산업진흥원]
+  - name: GPU추진단
+    ministry: 과학기술정보통신부
+    aliases: []
+  - name: NIA
+    ministry: 과학기술정보통신부
+    aliases: [NIA, 한국지능정보사회진흥원, 한국정보화진흥원]
+  - name: KISA
+    ministry: 과학기술정보통신부
+    aliases: [KISA, 한국인터넷진흥원]
+  - name: KISIA
+    ministry: 과학기술정보통신부
+    aliases: [KISIA, 한국정보보호산업협회]
+  - name: ETRI
+    ministry: 과학기술정보통신부
+    aliases: [ETRI, 한국전자통신연구원]
+  - name: KEIT
+    ministry: 산업통상부
+    aliases: [KEIT, 한국산업기술기획평가원, 한국산업기술평가관리원]
+  - name: 중소벤처기업부
+    ministry: 중소벤처기업부
+    aliases: [중소벤처기업부, 중기부, 중소기업기술정보진흥원]
+  - name: 수출지원
+    ministry: 중소벤처기업부
+    aliases: []
+  - name: SBA
+    ministry: 서울특별시
+    aliases: [SBA, 서울경제진흥원, 서울산업진흥원]
+  - name: 기타 기관
+    ministry: 기타
+    aliases: []

@@ -1,0 +1,309 @@
+# ※ 테스트·샘플 미리보기 전용 고정 사본입니다. 운영 설정은 저장소 맨 위 config/ 폴더에서 고치세요.
+# 수집 출처 목록 (개발요청서 3.1, 7.2)
+#
+# 자주 바꾸는 항목
+#   enabled      : false로 바꾸면 그 출처는 수집하지 않습니다 (출처 점검 모드에서는 계속 점검합니다)
+#   url          : 목록 화면 주소
+#   title_filter : 제목에 이 단어 중 하나가 있을 때만 수집 (비어 있으면 전체)
+#   group        : config/groups.yaml의 그룹 이름. "통합포털"이면 공고기관명으로 자동 재분류
+#
+# type: api_g2b_bid | api_g2b_prespec | generic_board | custom:<이름>
+# generic_board의 selectors/options 설명은 src/rnd_noti/sources/generic_board.py 맨 위에 있습니다.
+# note: 사람이 읽는 메모 (출처 점검 결과에 함께 표시)
+#
+# 마지막 점검: 2026-11-11 (한국 IP에서 확인. 해외 IP인 GitHub Actions에서의 결과는 출처 점검 모드로 확인)
+
+# ───────────── 나라장터 (공공데이터포털 API) ─────────────
+# options.operations = 조회할 업무구분 (용역 | 물품 | 공사 | 외자)
+# options.base_url  = API 주소가 바뀌었을 때만 적습니다 (비우면 기본 주소)
+- id: g2b_bid
+  name: 나라장터 입찰공고
+  group: 나라장터
+  ministry: 나라장터
+  enabled: true
+  type: api_g2b_bid
+  url: https://www.g2b.go.kr/
+  notice_type: 본공고
+  options: {operations: [용역, 물품]}
+
+- id: g2b_prespec
+  name: 나라장터 사전규격
+  group: 나라장터
+  ministry: 나라장터
+  enabled: true
+  type: api_g2b_prespec
+  url: https://www.g2b.go.kr/
+  notice_type: 사전규격/수요조사
+  options: {operations: [용역, 물품]}
+
+# ───────────── 통합포털 (공고기관명으로 재분류) ─────────────
+- id: iris
+  name: IRIS 통합 사업공고
+  group: 통합포털
+  enabled: true
+  type: custom:iris
+  url: https://www.iris.go.kr/contents/retrieveBsnsAncmBtinSituListView.do
+  notice_type: 본공고
+
+- id: ntis
+  name: NTIS R&D공고
+  group: 통합포털
+  enabled: false
+  type: generic_board
+  url: http://www.ntis.go.kr/rndgate/eg/un/ra/mng.do
+  notice_type: 본공고
+  note: "robots.txt가 모든 자동 수집을 금지(Disallow: /). 수집하지 않음. IRIS·기업마당으로 대부분 대체"
+
+- id: bizinfo
+  name: 기업마당 지원사업조회
+  group: 통합포털
+  enabled: true
+  type: generic_board
+  url: https://www.bizinfo.go.kr/see/seea/selectSEEA100.do
+  notice_type: 본공고
+  selectors:
+    row: "table tbody tr:has(td.txt_l)"
+    title: "td.txt_l a"
+    link: "td.txt_l a@href"
+    date: "td:nth-of-type(7)"
+    deadline: "td:nth-of-type(4)"
+    org: "td:nth-of-type(5)"
+  options: {page_param: cpage, max_pages: 30, id_params: [pblancId]}
+
+# ───────────── 기관 게시판 ─────────────
+- id: msit
+  name: 과학기술정보통신부 사업공고
+  group: 과학기술정보통신부
+  ministry: 과학기술정보통신부
+  enabled: true
+  type: custom:msit
+  url: https://www.msit.go.kr/bbs/list.do?sCode=user&mPid=121&mId=311
+  notice_type: 본공고
+
+- id: iitp
+  name: IITP (현)사업공고
+  group: IITP
+  ministry: 과학기술정보통신부
+  enabled: false
+  type: generic_board
+  url: https://www.iitp.kr/web/lay1/program/S1T44C51/iris/list.do
+  notice_type: 본공고
+  note: "robots.txt가 모든 자동 수집을 금지(Disallow: /). 수집하지 않음. IITP 공고는 IRIS에도 올라와 IRIS 수집으로 IITP 섹션에 표시됨"
+
+- id: nipa
+  name: NIPA 사업공고 목록
+  group: NIPA
+  ministry: 과학기술정보통신부
+  enabled: true
+  type: generic_board
+  url: https://www.nipa.kr/home/2-2
+  notice_type: 본공고
+  selectors:
+    row: "table.tbgg tbody tr"
+    title: "td.tl div.co a"
+    link: "td.tl div.co a@href"
+    date: "td:nth-of-type(5)"
+    deadline: "td.tl span.bco"
+  options: {page_param: curPage}
+
+- id: gpu
+  name: GPU 활용지원사업
+  group: GPU추진단
+  ministry: 과학기술정보통신부
+  enabled: false        # 단기 사업. 종료되면 계속 false
+  type: generic_board
+  url: https://aiinfrahub.kr/project
+  notice_type: 본공고
+  note: "사이트 보안 인증서 설정 오류(중간 인증서 누락)로 프로그램 접속이 거부됨. 인증서 검사를 끄는 우회는 하지 않음"
+
+- id: nia
+  name: 한국정보화진흥원
+  group: NIA
+  ministry: 과학기술정보통신부
+  enabled: true
+  type: generic_board
+  url: https://www.nia.or.kr/site/nia_kor/ex/bbs/List.do?cbIdx=78336
+  notice_type: 본공고
+  selectors:
+    row: "li:has(> a[onclick*=doBbsFView])"
+    title: "a@title"
+    link: "a@onclick"
+    date: "span.src em"
+  options:
+    page_param: pageIndex
+    link_regex: "doBbsFView\\('(\\d+)','(\\d+)','\\d+','(\\d+)'\\)"
+    link_template: "https://www.nia.or.kr/site/nia_kor/ex/bbs/View.do?cbIdx={1}&bcIdx={2}&parentSeq={3}"
+    title_remove: ["\\(새 글\\)", "-?첨부파일 있음"]
+
+- id: kisa
+  name: KISA 공지사항
+  group: KISA
+  ministry: 과학기술정보통신부
+  enabled: true
+  type: generic_board
+  url: https://www.kisa.or.kr/401
+  notice_type: 본공고
+  title_filter: [공고, 모집, 사업]
+  note: "북마크 주소(cont.kisa.or.kr/advertise/list)는 메인으로 이동해 공지사항 게시판 주소로 변경"
+  selectors:
+    row: "table.tbl_board tbody tr"
+    title: "td.sbj a"
+    link: "td.sbj a@href"
+    date: "td.date"
+  options: {page_param: page, id_params: [postSeq]}
+
+- id: kisia
+  name: 정보보호산업협회 공고
+  group: KISIA
+  ministry: 과학기술정보통신부
+  enabled: true
+  type: generic_board
+  url: https://www.kisia.or.kr/ks/kboard.php?PN=68
+  notice_type: 본공고
+  selectors:
+    row: "tr:has(td.kb-td-title)"
+    title: "td.kb-td-title a"
+    link: "td.kb-td-title a@href"
+    date: "td.kb-date"
+  options: {page_param: page, id_params: ["no"]}
+
+- id: etri
+  name: ETRI 공동연구 공고
+  group: ETRI
+  ministry: 과학기술정보통신부
+  enabled: false
+  type: generic_board
+  url: https://pcm.etri.re.kr/pcmx/join/anno/annoList.do
+  notice_type: 본공고
+  note: "접속 시간 초과(한국 IP에서도 응답 없음). 외부 접속 제한 추정. 브라우저 확인 후 결정"
+
+- id: keit_rnd
+  name: KEIT R&D 공고
+  group: KEIT
+  ministry: 산업통상부
+  enabled: true
+  type: generic_board
+  url: https://srome.keit.re.kr/srome/biz/perform/opnnPrpsl/retrieveTaskAnncmListView.do?prgmId=XPG201040000
+  notice_type: 본공고
+  selectors:
+    row: "#assignment-notice_list div.table_box"
+    title: "span.title"
+    link: "p.subject a@data-onclick"
+    date: "div.info p:-soup-contains('등록일') span.value"
+    deadline: "div.info p:-soup-contains('접수기간') span.value"
+  options:
+    page_param: pageIndex
+    link_regex: "f_detail\\('([^']+)',\\s*'(\\d+)'\\)"
+    link_template: "https://srome.keit.re.kr/srome/biz/perform/opnnPrpsl/retrieveTaskAnncmInfoView.do?prgmId=XPG201040000&ancmId={1}&bsnsYy={2}"
+
+- id: keit_demand
+  name: KEIT 수요조사 공고
+  group: KEIT
+  ministry: 산업통상부
+  enabled: true
+  type: generic_board
+  url: https://srome.keit.re.kr/srome/biz/perform/opnnPrpsl/retrieveDmndSrvyLstView.do?prgmId=XPG201010000
+  notice_type: 사전규격/수요조사
+  selectors:
+    row: "#assignment-notice_list div.table_box"
+    title: "span.title"
+    link: "p.subject a@data-href"
+    date: "div.info p:-soup-contains('공고일') span.value"
+    deadline: "div.info p:-soup-contains('접수기간') span.value"
+  options:
+    page_param: pageIndex
+    link_regex: "f_detail\\('(\\d+)'\\)"
+    link_template: "https://srome.keit.re.kr/srome/biz/perform/opnnPrpsl/retrieveRndPlnnDtlView.do?prgmId=XPG201010000&sbjtPlnnAncmId={1}"
+
+- id: smtech
+  name: 중소기업 기술개발사업 종합관리시스템 사업공고
+  group: 중소벤처기업부
+  ministry: 중소벤처기업부
+  enabled: true
+  type: generic_board
+  url: https://www.smtech.go.kr/front/ifg/no/notice02_list.do
+  notice_type: 본공고
+  note: "목록이 게시일순이 아니어서 5페이지까지 모두 확인"
+  selectors:
+    row: "table.tbl_type01 tbody tr:has(a.board)"
+    title: "a.board"
+    link: "a.board@href"
+    date: "td:nth-of-type(6)"
+    deadline: "td:nth-of-type(5)"
+  options: {method: post, page_param: pageIndex, max_pages: 5, sorted: false, id_params: [ancmId, dtlAncmSn]}
+
+- id: mss
+  name: 중소벤처기업부 훈령·고시·공고
+  group: 중소벤처기업부
+  ministry: 중소벤처기업부
+  enabled: true
+  type: generic_board
+  url: https://www.mss.go.kr/site/smba/ex/bbs/List.do?cbIdx=310
+  notice_type: 본공고
+  title_filter: [공고]
+  selectors:
+    row: "tbody tr[onclick*=doBbsFView]"
+    title: "td.subject a.pc-detail"
+    link: "@onclick"
+    date: "td:nth-of-type(4)"
+    deadline: "div.tableInfoBox dl:-soup-contains('신청기간') dd"
+  options:
+    page_param: pageIndex
+    link_regex: "doBbsFView\\('(\\d+)','(\\d+)','\\d+','(\\d+)'\\)"
+    link_template: "https://www.mss.go.kr/site/smba/ex/bbs/View.do?cbIdx={1}&bcIdx={2}&parentSeq={3}"
+
+# ───────────── 수출지원 ─────────────
+- id: export_capability
+  name: 수출지원센터 수출역량강화사업
+  group: 수출지원
+  ministry: 중소벤처기업부
+  enabled: false
+  type: generic_board
+  url: https://www.smes.go.kr/exportcenter/information/notice/list.do
+  notice_type: 본공고
+  note: "북마크 주소가 '중소기업수출지원센터'(export_center)와 같은 게시판이라 중복 수집하지 않음"
+
+- id: export_center
+  name: 중소기업수출지원센터
+  group: 수출지원
+  ministry: 중소벤처기업부
+  enabled: true
+  type: generic_board
+  url: https://www.smes.go.kr/exportcenter/information/notice/list.do
+  notice_type: 본공고
+  selectors:
+    row: "table.table-type-list tbody tr"
+    title: "a.cms_inner-item-link"
+    link: "a.cms_inner-item-link@href"
+    date: "td:nth-of-type(4)"
+  options: {page_param: pageNumber, id_params: [seq]}
+
+- id: export_infra
+  name: 수출지원기반활용사업
+  group: 수출지원
+  ministry: 산업통상부
+  enabled: true
+  type: generic_board
+  url: https://www.exportvoucher.com/portal/board/boardList?bbs_id=1
+  notice_type: 본공고
+  selectors:
+    row: "table.table-default tbody tr"
+    title: "td.left a"
+    link: "td.left a@onclick"
+    date: "td:nth-of-type(3)"
+  options:
+    page_param: pageNo
+    link_regex: "goDetail\\((\\d+)\\)"
+    link_template: "https://www.exportvoucher.com/portal/board/boardView?bbs_id=1&ntt_id={1}"
+
+# ───────────── SBA ─────────────
+- id: sba
+  name: SBA
+  group: SBA
+  ministry: 서울특별시
+  enabled: false
+  note: "목록 데이터 주소가 이 프로그램의 요청을 거부(HTTP 400). 브라우저로 위장하는 우회는 하지 않음. 전용 어댑터는 준비됨"
+  type: custom:sba
+  url: https://www.sba.seoul.kr/Pages/ContentsMenu/Company_Support.aspx?C=8D010DF4-6777-EC11-80E8-9418827691E2
+  notice_type: 본공고
+  options: {menu_id: 8D010DF4-6777-EC11-80E8-9418827691E2, max_pages: 3}

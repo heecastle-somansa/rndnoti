@@ -4,6 +4,8 @@ from pathlib import Path
 from rnd_noti.sources.http import HttpClient
 
 FIX = Path(__file__).parent / "fixtures"
+# 테스트는 운영 설정(config/)이 아니라 고정 사본을 쓴다 → 키워드·출처를 고쳐도 테스트가 깨지지 않는다
+TEST_CONFIG = Path(__file__).parents[1] / "samples" / "config"
 
 
 class FakeResp:

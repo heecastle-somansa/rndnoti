@@ -1,5 +1,6 @@
 """1단계(기본 골격) 테스트: 공고 스키마, 설정 읽기, 상태 저장, 어댑터 레지스트리."""
 import re
+from dataclasses import replace
 from datetime import date
 
 import pytest
@@ -9,6 +10,7 @@ from rnd_noti.config import ConfigError, SourceConfig, load_config, load_groups,
 from rnd_noti.models import NOTICE_TYPE_PRE, Notice
 from rnd_noti.sources import registry
 from rnd_noti.sources.base import SourceAdapter, SourceError
+from tests.fakes import TEST_CONFIG
 
 
 # ---------- models ----------
@@ -36,10 +38,17 @@ def test_notice_rejects_bad_values():
         Notice(uid="a", source="x", title="t", notice_type="입찰")
 
 
-# ---------- config (실제 config/ 폴더) ----------
+# ---------- config ----------
 
+@pytest.mark.liveconfig
 def test_real_config_loads():
+    """운영 설정(config/)은 '형식이 맞는지'만 본다. 내용(키워드·출처 수)은 운영자가 자유롭게 바꾼다."""
     cfg = load_config()
+    assert cfg.sources and cfg.keywords.categories and cfg.groups.names
+
+
+def test_frozen_config_contents():
+    cfg = load_config(TEST_CONFIG)
     assert len(cfg.sources) == 21
     assert len({s.id for s in cfg.sources}) == 21
     assert cfg.groups.names == [
@@ -57,6 +66,7 @@ def test_real_config_loads():
     assert portal == ["iris", "ntis", "bizinfo"]
 
 
+@pytest.mark.liveconfig
 def test_real_config_has_no_secrets():
     from rnd_noti.config import CONFIG_DIR
     for path in CONFIG_DIR.glob("*.yaml"):
@@ -76,7 +86,7 @@ def test_disabling_source_needs_no_code_change(tmp_path):
 - {id: a, name: A, group: IITP, type: generic_board, enabled: false}
 - {id: b, name: B, group: 통합포털, type: "custom:iris"}
 """)
-    sources = load_sources(p, load_groups())
+    sources = load_sources(p, load_groups(TEST_CONFIG / "groups.yaml"))
     assert [s.id for s in sources if s.enabled] == ["b"]
 
 
@@ -92,7 +102,7 @@ def test_disabling_source_needs_no_code_change(tmp_path):
 def test_bad_sources_give_clear_error(tmp_path, body, word):
     p = _write(tmp_path, "sources.yaml", body)
     with pytest.raises(ConfigError, match=word):
-        load_sources(p, load_groups())
+        load_sources(p, load_groups(TEST_CONFIG / "groups.yaml"))
 
 
 def test_bad_keywords_and_groups(tmp_path):
@@ -127,7 +137,8 @@ def test_seen_roundtrip_and_prune(tmp_path):
     today = date(2026, 11, 9)
     mk = lambda uid: Notice(uid=uid, source="iitp", title="한글 공고", deadline=date(2026, 12, 1))
     seen = {
-        "old": state.SeenEntry(date(2026, 8, 10), mk("old")),      # 91일 전 → 삭제
+        "old": state.SeenEntry(date(2026, 8, 10), replace(mk("old"), deadline=date(2026, 11, 8))),  # 91일 전 + 마감 지남 → 삭제
+        "open": state.SeenEntry(date(2026, 8, 10), mk("open")),    # 91일 전이지만 마감 전 → 유지(리마인드용)
         "edge": state.SeenEntry(date(2026, 8, 11), mk("edge")),    # 정확히 90일 → 유지
         "new": state.SeenEntry(today, mk("new")),
     }
@@ -135,7 +146,7 @@ def test_seen_roundtrip_and_prune(tmp_path):
     assert "한글 공고" in p.read_text(encoding="utf-8")            # 한글이 깨지지 않고 저장됨
     loaded = state.load_seen(p)
     assert loaded == seen
-    assert set(state.prune_seen(loaded, today)) == {"edge", "new"}
+    assert set(state.prune_seen(loaded, today)) == {"open", "edge", "new"}
 
 
 # ---------- registry ----------

@@ -21,10 +21,11 @@ from .subscribers import load_subscribers
 
 ROOT = Path(__file__).resolve().parents[2]
 SAMPLE = ROOT / "samples" / "sample_notices.json"
+SAMPLE_CONFIG = ROOT / "samples" / "config"      # 샘플 전용 고정 설정(운영 설정을 바꿔도 샘플은 그대로)
 
 
 def build_sample(out_dir: Path) -> list[Path]:
-    cfg = load_config()
+    cfg = load_config(SAMPLE_CONFIG)
     data = json.loads(SAMPLE.read_text(encoding="utf-8"))
     today, since = date.fromisoformat(data["today"]), date.fromisoformat(data["since"])
     sources = {s.id: s for s in cfg.sources}

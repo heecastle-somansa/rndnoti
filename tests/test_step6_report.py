@@ -10,8 +10,9 @@ from rnd_noti.match import KIND_NEW, KIND_REMINDER, KIND_REVISION, Item
 from rnd_noti.models import Notice
 from rnd_noti.preview import build_sample
 from rnd_noti.report import GRAY, ORANGE, RED, build_report, dday, make_card, render, week_label
+from tests.fakes import TEST_CONFIG
 
-CFG = load_config()
+CFG = load_config(TEST_CONFIG)
 TODAY = date(2026, 11, 9)
 
 

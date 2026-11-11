@@ -152,7 +152,12 @@ GitHub 서버 사정으로 몇 분에서 수십 분 늦게 시작될 수 있습�
 4. 오른쪽 위 초록색 **[Commit changes...]** → 다시 **[Commit changes]** 를 누릅니다.
 5. 출처를 바꿨다면 [2장](#수동-실행-run-workflow-버튼)의 **`check_sources`** 모드로 먼저 확인합니다.
 
-설정에 오타가 있으면 실행이 멈추고, Actions 화면 로그에 "어느 파일의 어느 항목이 틀렸는지" 한국어로 나옵니다.
+**고친 직후 자동 검사**: `config` 폴더의 파일을 저장(Commit)하면 1분 안에 형식 검사가 자동으로 돕니다(메일 발송 없음).
+
+- 저장소 첫 화면 위쪽, 마지막 커밋 문구 옆에 **초록 체크(✓)** 가 뜨면 정상입니다. 다음 월요일 실행부터 반영됩니다.
+- **빨간 X(✗)** 가 뜨면 X를 누르고 → **Details** → `Validate config` 단계에서 "설정 파일 오류: 어느 파일의 어느 항목"인지 한국어로 확인해 고칩니다.
+- 오타를 못 보고 지나쳐도, 월요일 실행 때 같은 오류 문구가 운영자 메일(`ADMIN_EMAIL`)로 옵니다. 이 경우 구독자 메일은 나가지 않으며, 고친 뒤 다시 실행하면 빠진 기간까지 모아서 보냅니다.
+- 키워드·분류·출처를 **추가·삭제·이름 변경해도 프로그램 코드나 테스트를 고칠 필요가 없습니다.** (분류 이름을 바꾸거나 지웠다면 `SUBSCRIBERS_JSON`의 `categories`도 같은 이름으로 맞춰 주세요.)
 
 ### 분류·키워드 바꾸기 — `config/keywords.yaml`
 
@@ -196,6 +201,7 @@ categories:
 
 - **출처 끄기**: `enabled: true` → `enabled: false`. 이유를 `note`에 적어 두세요.
 - **URL 변경**: `url`만 바꿉니다. 사이트 화면 구조가 바뀌어 수집이 안 되면 선택자도 바꿔야 하므로 Claude Code에 요청하세요.
+- **새 게시판 추가**: 위 덩어리를 복사해 맨 아래에 붙이고 `id`·`name`·`url`을 바꿉니다. 다만 `selectors`(화면에서 공고 위치를 찾는 규칙)는 사이트마다 달라서 직접 쓰기 어렵습니다. 이 부분만 Claude Code에 "이 주소를 출처로 추가해줘"라고 요청하세요. 프로그램 코드는 바꾸지 않고 이 파일만 바뀝니다.
 - **GPU 활용지원사업**처럼 기간이 정해진 사업이 끝나면 `enabled: false`로 둡니다.
 - 선택자·옵션의 자세한 설명은 [`generic_board.py`](src/rnd_noti/sources/generic_board.py) 맨 위에 있습니다.
 
@@ -213,6 +219,7 @@ categories:
 
 - 추가: 목록에 `{...}` 한 덩어리를 더합니다. 덩어리 사이에는 쉼표(`,`)를 넣습니다.
 - 일시중지: `"active": false`로 바꿉니다.
+- **원본 보관 필수**: Secrets는 저장한 뒤에는 내용을 다시 볼 수 없습니다. 구독자 목록 원본을 본인만 보는 곳(예: PC의 `subscribers.json` — 이 이름은 저장소에 올라가지 않게 막혀 있습니다)에 보관해 두고, 고칠 때마다 전체를 다시 붙여넣으세요.
 
 ### 발신 계정 바꾸기 — Secrets `SMTP_*`, `MAIL_*`
 
@@ -292,6 +299,18 @@ categories:
 
 **실행 상태 파일**: `state/last_run.json`(마지막 성공 실행일)과 `state/seen.json`(이미 보낸 공고, 90일 보관)은 발송이 성공한 뒤에만 자동으로 저장소에 커밋됩니다. 실행을 건너뛴 주가 있어도, 다음 실행 때 마지막 성공일 다음 날부터 모아서 보냅니다.
 
+**오래 써도 쌓이지 않는 구조**
+
+| 항목 | 어디에 남나 | 늘어나는가 |
+| --- | --- | --- |
+| 실행 기록·로그 | GitHub Actions 탭 (저장소 파일 아님) | GitHub가 90일 뒤 자동 삭제 |
+| 미리보기·점검 결과 파일 | Actions 아티팩트 (저장소 파일 아님) | 14일 뒤 자동 삭제 |
+| `state/` 파일 | 저장소 | 파일 2개를 **덮어쓰기**만 함. `seen.json`은 보낸 공고만 담고 90일이 지나고 마감도 지난 항목은 지움 |
+| 커밋 기록 | 저장소 | 주 1건(연 52건), 수 KB 수준이라 수십 년 써도 부담 없음 |
+
+- 주 1회 `state` 커밋은 **자동 실행이 꺼지지 않게 하는 역할**도 합니다. GitHub는 60일간 아무 변화가 없는 공개 저장소의 예약 실행을 자동으로 끄는데, 매주 커밋이 생기므로 해당되지 않습니다. 단, 실행이 60일 넘게 계속 실패하면 꺼질 수 있으니 오류 메일을 방치하지 마세요(꺼졌다면 Actions 탭 → 워크플로 → **Enable workflow**).
+- 2~3년에 한 번쯤 GitHub가 "오래된 버전의 actions" 경고 메일을 보낼 수 있습니다. 그때 Claude Code에 "워크플로의 actions 버전을 올려줘"라고 요청하면 됩니다.
+
 ---
 
 ## 7. 구조 요약 (개발자용)
@@ -302,6 +321,7 @@ categories:
 
 ```text
 .github/workflows/weekly-report.yml   일정 실행 + 수동 실행(dry-run / normal / check_sources) + state 커밋
+.github/workflows/validate-config.yml config/ 수정 시 자동 형식 검사
 config/                               keywords.yaml · sources.yaml · groups.yaml
 src/rnd_noti/
   main.py                             실행 진입점 (모드별 흐름, 출처별 결과표, 운영자 알림)
@@ -321,7 +341,8 @@ src/rnd_noti/
     custom/iris.py, msit.py, sba.py   전용 어댑터
 templates/                            weekly_report.html/.txt, check_sources.html, admin_error.html
 samples/sample_notices.json           메일 미리보기용 가짜 데이터
-tests/                                출처별 샘플 응답(fixtures)으로 테스트
+samples/config/                       테스트·샘플 전용 고정 설정 사본 (운영 설정 config/와 분리)
+tests/                                출처별 샘플 응답(fixtures)으로 테스트. 운영 설정 내용에 의존하지 않음
 ```
 
 **PC에서 직접 실행하기 (선택)** — Python 3.12 필요:
@@ -331,6 +352,7 @@ pip install -r requirements.txt
 python -m pytest -q                                   # 테스트
 PYTHONPATH=src python -m rnd_noti.preview             # 샘플 데이터로 output/preview_*.html 생성
 PYTHONPATH=src python -m rnd_noti.main --mode dry-run # 실제 수집 + 미리보기 파일
+PYTHONPATH=src python -m rnd_noti.main --mode validate # 설정 파일 형식 검사만
 ```
 
 비밀값은 저장소에 두지 않습니다. `.gitignore`는 `.env`, `*.key`, `secrets*.json`, `subscribers*.json`, 북마크 파일, `docs/`, `output/`을 제외합니다.

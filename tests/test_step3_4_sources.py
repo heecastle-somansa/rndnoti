@@ -14,9 +14,9 @@ from rnd_noti.sources.custom.msit import parse_list
 from rnd_noti.sources.custom.sba import end_date
 from rnd_noti.sources.generic_board import extract, last_date, notice_id_from_url
 from rnd_noti.sources.registry import get_adapter_class
-from tests.fakes import FakeResp, fake_http, fixture_text
+from tests.fakes import TEST_CONFIG, FakeResp, fake_http, fixture_text
 
-SOURCES = {s.id: s for s in load_config().sources}
+SOURCES = {s.id: s for s in load_config(TEST_CONFIG).sources}
 
 
 def adapter_for(sid, responder):

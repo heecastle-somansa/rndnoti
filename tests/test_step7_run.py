@@ -11,8 +11,9 @@ from rnd_noti.mailer import MailError, Mailer, MailSettings, build_message
 from rnd_noti.main import run_check_sources, run_weekly
 from rnd_noti.models import Notice
 from rnd_noti.sources.base import SourceError
+from tests.fakes import TEST_CONFIG
 
-CFG = load_config()
+CFG = load_config(TEST_CONFIG)
 TODAY = date(2026, 11, 9)
 SUBS = [
     {"name": "본인", "email": "me@corp.example", "active": True, "categories": ["망분리·VDI", "보안 일반"]},
@@ -222,7 +223,7 @@ def test_dry_run_saves_files_without_sending_or_state(tmp_path):
 def test_dry_run_without_subscribers_uses_examples(tmp_path):
     env = {k: v for k, v in ENV.items() if k != "SUBSCRIBERS_JSON"}
     assert run(tmp_path, env=env, dry=True) == 0
-    assert len(list((tmp_path / "out").glob("*.html"))) == 2
+    assert [p.name for p in (tmp_path / "out").glob("*.html")] == ["01_미리보기_전체분류.html"]
 
 
 def test_check_sources_reports_all_21(tmp_path, capsys):
@@ -250,3 +251,22 @@ def test_build_message_and_settings():
     with pytest.raises(MailError) as exc:
         MailSettings.from_env({"SMTP_USER": "a@b.example"})
     assert "SMTP_PASSWORD" in str(exc.value)
+
+
+def test_broken_config_reports_clear_error_instead_of_crash(monkeypatch, capsys):
+    """설정 파일을 잘못 고치면 원인을 한글로 알리고 종료한다(메일·상태 변화 없음)."""
+    from rnd_noti import main as m
+    from rnd_noti.config import ConfigError
+
+    def broken():
+        raise ConfigError("keywords.yaml: 분류 '빈분류'에 keywords가 없습니다")
+    monkeypatch.setattr(m, "load_config", broken)
+    assert m.main(["--mode", "dry-run"]) == 1
+    assert "설정 파일 오류: keywords.yaml" in capsys.readouterr().out
+
+
+@pytest.mark.liveconfig
+def test_validate_mode_checks_real_config_only(capsys):
+    from rnd_noti import main as m
+    assert m.main(["--mode", "validate"]) == 0
+    assert "설정 파일 정상" in capsys.readouterr().out

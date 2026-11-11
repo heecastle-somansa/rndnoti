@@ -11,8 +11,9 @@ from rnd_noti.models import Notice
 from rnd_noti.normalize import assign_group, format_amount, norm, normalize, passes_title_filter, title_key
 from rnd_noti.state import SeenEntry
 from rnd_noti.subscribers import SubscriberError, load_subscribers
+from tests.fakes import TEST_CONFIG
 
-CFG = load_config()
+CFG = load_config(TEST_CONFIG)
 KW, GROUPS = CFG.keywords, CFG.groups
 SRC = {s.id: s for s in CFG.sources}
 TODAY = date(2026, 11, 9)

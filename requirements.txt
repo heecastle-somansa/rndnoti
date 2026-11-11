@@ -1,5 +1,6 @@
-requests>=2.32
-PyYAML>=6.0
-Jinja2>=3.1
-beautifulsoup4>=4.12
-pytest>=8.0
+# 큰 버전(맨 앞 숫자)이 바뀌면 동작이 달라질 수 있어 상한을 둡니다.
+requests>=2.32,<3
+PyYAML>=6.0,<7
+Jinja2>=3.1,<4
+beautifulsoup4>=4.12,<5
+pytest>=8.0,<10
