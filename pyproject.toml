@@ -1,0 +1,9 @@
+[project]
+name = "rnd-noti"
+version = "0.1.0"
+description = "나라장터·정부 R&D 공고를 매주 수집해 구독자별 메일로 보내는 도구"
+requires-python = ">=3.12"
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]

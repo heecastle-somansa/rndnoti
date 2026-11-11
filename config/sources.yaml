@@ -1,0 +1,58 @@
+# 수집 출처 목록 (개발요청서 3.1, 7.2)
+# - enabled: false 로 바꾸면 그 출처는 수집하지 않습니다.
+# - type: api_g2b_bid | api_g2b_prespec | generic_board | custom:<이름>
+# - group: config/groups.yaml의 그룹 이름. "통합포털"이면 공고기관명으로 자동 재분류합니다.
+# - title_filter: 제목에 이 단어 중 하나가 있을 때만 수집 (비어 있으면 전체)
+# - selectors: generic_board일 때 목록 화면에서 공고를 찾는 위치 (CSS 선택자)
+#
+# [현재 상태] URL과 selectors는 비어 있습니다. 3단계(북마크 반영)와 4단계(출처 점검)에서 채웁니다.
+#            type도 4단계에서 출처별로 실제 확인한 뒤 확정합니다.
+
+- {id: g2b_bid,     name: 나라장터 입찰공고, group: 나라장터, ministry: 나라장터, enabled: true,
+   type: api_g2b_bid, url: "", notice_type: 본공고, title_filter: []}
+- {id: g2b_prespec, name: 나라장터 사전규격, group: 나라장터, ministry: 나라장터, enabled: true,
+   type: api_g2b_prespec, url: "", notice_type: 사전규격/수요조사, title_filter: []}
+
+- {id: iris,    name: IRIS 통합 사업공고,   group: 통합포털, ministry: "", enabled: true,
+   type: generic_board, url: "", notice_type: 본공고, title_filter: [], selectors: {}}
+- {id: ntis,    name: NTIS R&D공고,        group: 통합포털, ministry: "", enabled: true,
+   type: generic_board, url: "", notice_type: 본공고, title_filter: [], selectors: {}}
+- {id: bizinfo, name: 기업마당 지원사업조회, group: 통합포털, ministry: "", enabled: true,
+   type: generic_board, url: "", notice_type: 본공고, title_filter: [], selectors: {}}
+
+- {id: msit,  name: 과학기술정보통신부 사업공고, group: 과학기술정보통신부, ministry: 과학기술정보통신부, enabled: true,
+   type: generic_board, url: "", notice_type: 본공고, title_filter: [], selectors: {}}
+- {id: iitp,  name: IITP (현)사업공고, group: IITP, ministry: 과학기술정보통신부, enabled: true,
+   type: generic_board, url: "", notice_type: 본공고, title_filter: [], selectors: {}}
+- {id: nipa,  name: NIPA 사업공고 목록, group: NIPA, ministry: 과학기술정보통신부, enabled: true,
+   type: generic_board, url: "", notice_type: 본공고, title_filter: [], selectors: {}}
+- {id: gpu,   name: GPU 활용지원사업, group: GPU추진단, ministry: 과학기술정보통신부, enabled: true,   # 단기 사업. 종료되면 enabled: false
+   type: generic_board, url: "", notice_type: 본공고, title_filter: [], selectors: {}}
+- {id: nia,   name: 한국정보화진흥원, group: NIA, ministry: 과학기술정보통신부, enabled: true,
+   type: generic_board, url: "", notice_type: 본공고, title_filter: [], selectors: {}}
+- {id: kisa,  name: KISA 공지사항, group: KISA, ministry: 과학기술정보통신부, enabled: true,
+   type: generic_board, url: "", notice_type: 본공고, title_filter: [공고, 모집, 사업], selectors: {}}
+- {id: kisia, name: 정보보호산업협회 공고, group: KISIA, ministry: 과학기술정보통신부, enabled: true,
+   type: generic_board, url: "", notice_type: 본공고, title_filter: [], selectors: {}}
+- {id: etri,  name: ETRI 공동연구 공고, group: ETRI, ministry: 과학기술정보통신부, enabled: true,
+   type: generic_board, url: "", notice_type: 본공고, title_filter: [], selectors: {}}
+
+- {id: keit_rnd,    name: KEIT R&D 공고, group: KEIT, ministry: 산업통상부, enabled: true,
+   type: generic_board, url: "", notice_type: 본공고, title_filter: [], selectors: {}}
+- {id: keit_demand, name: KEIT 수요조사 공고, group: KEIT, ministry: 산업통상부, enabled: true,
+   type: generic_board, url: "", notice_type: 사전규격/수요조사, title_filter: [], selectors: {}}
+
+- {id: smtech, name: 중소기업 기술개발사업 종합관리시스템 사업공고, group: 중소벤처기업부, ministry: 중소벤처기업부, enabled: true,
+   type: generic_board, url: "", notice_type: 본공고, title_filter: [], selectors: {}}
+- {id: mss,    name: 중소벤처기업부 훈령·고시·공고, group: 중소벤처기업부, ministry: 중소벤처기업부, enabled: true,
+   type: generic_board, url: "", notice_type: 본공고, title_filter: [공고], selectors: {}}
+
+- {id: export_capability, name: 수출지원센터 수출역량강화사업, group: 수출지원, ministry: 중소벤처기업부, enabled: true,
+   type: generic_board, url: "", notice_type: 본공고, title_filter: [], selectors: {}}
+- {id: export_center,     name: 중소기업수출지원센터, group: 수출지원, ministry: 중소벤처기업부, enabled: true,
+   type: generic_board, url: "", notice_type: 본공고, title_filter: [], selectors: {}}
+- {id: export_infra,      name: 수출지원기반활용사업, group: 수출지원, ministry: 중소벤처기업부, enabled: true,
+   type: generic_board, url: "", notice_type: 본공고, title_filter: [], selectors: {}}
+
+- {id: sba, name: SBA, group: SBA, ministry: 서울특별시, enabled: true,
+   type: generic_board, url: "", notice_type: 본공고, title_filter: [], selectors: {}}

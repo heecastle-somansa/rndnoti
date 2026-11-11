@@ -1,0 +1,22 @@
+# 비밀값이 들어갈 수 있는 파일 (절대 커밋 금지)
+.env
+.env.*
+*.key
+*.pem
+secrets*
+subscribers*
+SUBSCRIBERS*
+bookmarks*.html
+
+# 코드베이스와 무관한 문서 (개발요청서 등)
+docs/
+
+# 실행 결과물 (dry-run HTML 등)
+output/
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+*.egg-info/
