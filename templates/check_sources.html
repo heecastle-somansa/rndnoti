@@ -1,0 +1,34 @@
+{% set F %}font-family:'맑은 고딕','Malgun Gothic',Arial,sans-serif;{% endset %}
+<!DOCTYPE html>
+<html lang="ko">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>{{ subject }}</title></head>
+<body style="margin:0; padding:0; background-color:#f2f4f7;" bgcolor="#f2f4f7">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#f2f4f7" style="background-color:#f2f4f7;">
+<tr><td align="center" style="padding:20px 8px;">
+<!--[if mso]><table role="presentation" width="640" cellpadding="0" cellspacing="0" border="0"><tr><td><![endif]-->
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#ffffff" style="max-width:640px; width:100%; background-color:#ffffff; border:1px solid #e4e7ec;">
+  <tr><td style="padding:24px 24px 8px 24px; {{ F }}">
+    <div style="{{ F }} font-size:19px; font-weight:bold; color:#101828;">출처 점검 결과</div>
+    <div style="{{ F }} font-size:13px; color:#475467; padding-top:4px;">점검 기간 {{ period }} · 성공 {{ ok }} · 실패 {{ failed }} · 꺼짐 {{ off }}</div>
+  </td></tr>
+  {% for r in rows %}
+  <tr><td style="padding:6px 24px;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border:1px solid #e4e7ec;">
+      <tr><td style="padding:10px 12px 2px 12px; {{ F }} font-size:14px; font-weight:bold; color:#101828;">
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
+          <td bgcolor="{{ r.color }}" style="background-color:{{ r.color }}; {{ F }} font-size:11px; color:#ffffff; font-weight:bold; padding:1px 6px;">{{ r.status }}</td>
+          <td style="padding-left:8px; {{ F }} font-size:14px; font-weight:bold; color:#101828;">{{ r.name }} <span style="font-weight:normal; color:#667085; font-size:12px;">({{ r.id }}, {{ r.count }}건)</span></td>
+        </tr></table>
+      </td></tr>
+      {% if r.reason %}<tr><td style="padding:2px 12px; {{ F }} font-size:12px; color:#b42318;">{{ r.reason }}</td></tr>{% endif %}
+      {% for t in r.recent %}<tr><td style="padding:1px 12px; {{ F }} font-size:12px; color:#475467;">· {{ t }}</td></tr>{% endfor %}
+      <tr><td style="font-size:1px; line-height:8px;">&nbsp;</td></tr>
+    </table>
+  </td></tr>
+  {% endfor %}
+  <tr><td style="padding:16px 24px 24px 24px; {{ F }} font-size:11px; color:#98a2b3;">구독자에게는 메일을 보내지 않았고, 실행 상태(state/)도 바꾸지 않았습니다.</td></tr>
+</table>
+<!--[if mso]></td></tr></table><![endif]-->
+</td></tr></table>
+</body>
+</html>

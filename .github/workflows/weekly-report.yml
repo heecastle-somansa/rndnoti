@@ -1,0 +1,77 @@
+# R&D Noti 주간 실행 (개발요청서 2장, 7장)
+#  - 자동: 매주 월요일 08:00 (한국 시간) = 일요일 23:00 UTC
+#  - 수동: Actions 탭 → "R&D Noti weekly report" → Run workflow → 실행 모드 선택
+name: R&D Noti weekly report
+
+on:
+  schedule:
+    - cron: "0 23 * * 0"          # 발송 요일·시간은 이 한 줄만 바꾸면 됩니다 (UTC 기준, 한국 시간 -9시간)
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "실행 모드 (dry-run: 미리보기 파일만 / normal: 실제 발송 / check_sources: 출처 점검)"
+        type: choice
+        options: [dry-run, normal, check_sources]
+        default: dry-run
+
+permissions:
+  contents: write                  # state/ 파일을 저장소에 다시 커밋하기 위해 필요
+
+concurrency:
+  group: rnd-noti                  # 동시에 두 번 실행되지 않게
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install
+        run: pip install -r requirements.txt
+
+      - name: Test
+        run: python -m pytest -q
+
+      - name: Run
+        env:
+          RUN_MODE: ${{ github.event_name == 'schedule' && 'normal' || inputs.mode }}
+          PYTHONPATH: src
+          DATA_GO_KR_KEY: ${{ secrets.DATA_GO_KR_KEY }}
+          SMTP_HOST: ${{ secrets.SMTP_HOST }}
+          SMTP_PORT: ${{ secrets.SMTP_PORT }}
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+          MAIL_FROM_NAME: ${{ secrets.MAIL_FROM_NAME }}
+          MAIL_REPLY_TO: ${{ secrets.MAIL_REPLY_TO }}
+          SUBSCRIBERS_JSON: ${{ secrets.SUBSCRIBERS_JSON }}
+          ADMIN_EMAIL: ${{ secrets.ADMIN_EMAIL }}
+        run: python -m rnd_noti.main --mode "$RUN_MODE"
+
+      - name: Upload preview / check result
+        if: always() && github.event_name != 'schedule' && inputs.mode != 'normal'
+        uses: actions/upload-artifact@v4
+        with:
+          name: rnd-noti-${{ github.run_number }}
+          path: output/
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Commit state
+        if: success() && (github.event_name == 'schedule' || inputs.mode == 'normal')
+        run: |
+          git config user.name "rnd-noti-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add state/
+          if git diff --cached --quiet; then
+            echo "state 변경 없음"
+          else
+            git commit -m "state: $(TZ=Asia/Seoul date +%Y-%m-%d) 실행 결과"
+            git push
+          fi
