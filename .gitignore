@@ -3,9 +3,13 @@
 .env.*
 *.key
 *.pem
-secrets*
-subscribers*
-SUBSCRIBERS*
+secrets*.json
+secrets*.txt
+secrets*.env
+subscribers*.json
+subscribers*.txt
+subscribers*.csv
+SUBSCRIBERS*.json
 bookmarks*.html
 
 # 코드베이스와 무관한 문서 (개발요청서 등)
