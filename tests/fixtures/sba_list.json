@@ -1,0 +1,43 @@
+{
+ "d": {
+  "__type": "ContentsOut",
+  "contents": [
+   {
+    "recordId": "332d5771-bed9-f111-b404-d4f5ef4a1e33",
+    "new_name": "(수정)2026년 건설분야 혁신기술 실증 지원사업",
+    "new_dt_mig_sdate": "2026.11.03",
+    "new_dt_mig_edate": "11.15",
+    "new_txt_mig_org_nm": "서울연구원"
+   },
+   {
+    "recordId": "52d94dda-a7d9-f111-b404-d4f5ef4a1e33",
+    "new_name": "2027년 스마트 제조혁신 지원사업 통합공고",
+    "new_dt_mig_sdate": "2026.10.30",
+    "new_dt_mig_edate": "12.31",
+    "new_txt_mig_org_nm": "중소벤처기업부"
+   }
+  ],
+  "contents2": [],
+  "contents3": [],
+  "contents4": [],
+  "contents5": [],
+  "contents6": [],
+  "contents7": [],
+  "contents8": [],
+  "contents9": [],
+  "pagerInfo": {
+   "totalPage": 603,
+   "currentPage": 1,
+   "nextPage": 11,
+   "prevPage": 0,
+   "startPage": 1,
+   "endPage": 10,
+   "lastPage": 51
+  },
+  "pagerInfo_m": null,
+  "sub_contents": [],
+  "ContentsFiles": [],
+  "Result": true,
+  "Message": ""
+ }
+}

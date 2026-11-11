@@ -1,0 +1,52 @@
+<html><body>
+<!-- 과기정통부 사업공고 목록 구조를 본뜬 샘플 (담당자 정보는 가짜 값) -->
+<div class="board_list">
+<div class="toggle">
+<a href="javascript:;" onclick="fn_detail(3186915);" title="상세보기">
+<div class="num" aria-label="번호" id="td_NO_0" ></div>
+<div class="txt" aria-label="제목"><p class="title" id="td_NTT_SJ_0"></p></div>
+<div class="date" aria-label="등록일" id="td_REG_DT_0" ></div>
+</a>
+</div>
+<div class="toggle">
+<a href="javascript:;" onclick="fn_detail(3186914);" title="상세보기">
+<div class="num" aria-label="번호" id="td_NO_1" ></div>
+<div class="txt" aria-label="제목"><p class="title" id="td_NTT_SJ_1"></p></div>
+<div class="date" aria-label="등록일" id="td_REG_DT_1" ></div>
+</a>
+</div>
+<div class="toggle">
+<a href="javascript:;" onclick="fn_detail(3186800);" title="상세보기">
+<div class="num" aria-label="번호" id="td_NO_2" ></div>
+<div class="txt" aria-label="제목"><p class="title" id="td_NTT_SJ_2"></p></div>
+<div class="date" aria-label="등록일" id="td_REG_DT_2" ></div>
+</a>
+</div>
+</div>
+<script>
+	$('#td_'+'NO'+'_0').html('4281');
+	//$('#td_'+'NTT_SJ'+'_0').html('<a href="javascript:;" onclick="fn_detail("3186915")"><span>주석 처리된 옛 제목</span></a>');
+	var sHtml = replyHrml;
+	// 							sHtml+='<a href="javascript:;" onclick="';
+	sHtml+= unescape(ctgryHtml);
+	sHtml+= unescape('2027년 정보보호 R&amp;D 신규과제 공고');
+	sHtml+= newHtml;
+	$('#td_'+'NTT_SJ'+'_0').html(sHtml);
+	// $('#td_'+'REG_DT'+'_0').html('2026-11-10');
+	$('#td_'+'REG_DT'+'_0').html('Nov 10, 2026');
+
+	var sHtml = replyHrml;
+	sHtml+= unescape(ctgryHtml);
+	sHtml+= unescape('[정정] 클라우드 네이티브 전환 지원사업 공고');
+	sHtml+= newHtml;
+	$('#td_'+'NTT_SJ'+'_1').html(sHtml);
+	$('#td_'+'REG_DT'+'_1').html('Nov 6, 2026');
+
+	var sHtml = replyHrml;
+	sHtml+= unescape(ctgryHtml);
+	sHtml+= unescape('오래된 공고');
+	sHtml+= newHtml;
+	$('#td_'+'NTT_SJ'+'_2').html(sHtml);
+	$('#td_'+'REG_DT'+'_2').html('Sep 1, 2026');
+</script>
+</body></html>
