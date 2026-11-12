@@ -155,6 +155,8 @@ def match_categories(title: str, chosen: list[str], kw: KeywordConfig,
             continue
         if cat.only_in and track is not None and track not in cat.only_in:
             continue
+        if not cat.regional and region_of(title):
+            continue
         if cat.require and not contains_any(t, cat.require, low):
             continue
         hits = contains_any(t, cat.keywords, low)

@@ -46,3 +46,14 @@ def test_region_filter():
     assert region_ok("2026년 K-BUSINESS DAY 참여기업 모집", ["서울"])   # 전국 공고는 항상 통과
     assert region_ok("[긴급] 공고", ["서울"])                          # 지역이 아닌 태그
     assert region_ok("[강원] 공고", [])                                 # 설정 없으면 전체
+
+
+def test_regional_notices_only_through_product_categories():
+    kw = KeywordConfig(exclude=(), categories={
+        "보안": Category("보안", ("정보보호",)),
+        "지재": Category("지재", ("지식재산",), regional=False),
+    })
+    both = ["보안", "지재"]
+    assert match_categories("[경북] 의성군 지식재산 긴급지원 사업", both, kw) == {}
+    assert "지재" in match_categories("2026년 지식재산 바우처 모집", both, kw)          # 전국 공고는 그대로
+    assert "보안" in match_categories("[전북] ICT 중소기업 정보보호 지원 사업", both, kw)  # 제품 분류는 지역 무관
