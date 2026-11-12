@@ -8,7 +8,7 @@ import json
 import re
 
 from .config import GroupConfig, KeywordConfig
-from .match import Subscriber
+from .match import REGIONS, Subscriber
 
 _EMAIL = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
@@ -61,12 +61,16 @@ def load_subscribers(raw: str, kw: KeywordConfig, source_ids: set[str],
             warnings.append(f"구독자 '{name}': source_categories에 없는 카테고리는 무시합니다: {', '.join(bad)} "
                             f"(가능: {' | '.join(known)})")
         tracks = [t for t in tracks if t in known]
+        regions = [str(r).strip() for r in item.get("regions") or [] if str(r).strip()]
+        bad = [r for r in regions if not any(r.startswith(x) for x in REGIONS)]
+        if bad:
+            warnings.append(f"구독자 '{name}': regions에 알 수 없는 지역: {', '.join(bad)} (예: 서울, 경기)")
         sub = Subscriber(
             name=name, email=email, categories=cats,
             active=bool(item.get("active", True)),
             sources=[str(s) for s in item.get("sources") or []],
             exclude_sources=[str(s) for s in item.get("exclude_sources") or []],
-            tracks=tracks,
+            tracks=tracks, regions=regions,
         )
         if sub.active and cats:
             subs.append(sub)

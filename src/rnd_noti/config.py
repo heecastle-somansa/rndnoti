@@ -30,6 +30,8 @@ class Category:
     keywords: tuple[str, ...]
     exclude: tuple[str, ...] = ()
     only_in: tuple[str, ...] = ()         # 이 공고 카테고리에서만 쓰는 분류 (비면 모든 카테고리)
+    require: tuple[str, ...] = ()         # 이 단어 중 하나도 공고명에 있어야 매칭 (비면 조건 없음)
+    regional: bool = True                 # false면 제목 앞에 [지역]이 붙은 지역 공고에는 적용하지 않음
 
 
 @dataclass(frozen=True)
@@ -132,6 +134,12 @@ def _str_list(value: Any, where: str) -> tuple[str, ...]:
     return tuple(str(v).strip() for v in value if str(v).strip())
 
 
+def _bool(value, where: str) -> bool:
+    if not isinstance(value, bool):
+        raise ConfigError(f"{where}: true 또는 false여야 합니다")
+    return value
+
+
 def load_keywords(path: Path | None = None) -> KeywordConfig:
     path = path or CONFIG_DIR / "keywords.yaml"
     data = _read_yaml(path) or {}
@@ -149,6 +157,8 @@ def load_keywords(path: Path | None = None) -> KeywordConfig:
             keywords=keywords,
             exclude=_str_list(body.get("exclude"), f"{path.name} > {name} > exclude"),
             only_in=_str_list(body.get("only_in"), f"{path.name} > {name} > only_in"),
+            require=_str_list(body.get("require"), f"{path.name} > {name} > require"),
+            regional=_bool(body.get("regional", True), f"{path.name} > {name} > regional"),
         )
     return KeywordConfig(
         exclude=_str_list(data.get("exclude"), f"{path.name} > exclude"),
