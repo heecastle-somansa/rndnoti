@@ -42,7 +42,7 @@ def make(source_type, responder, options=None, secrets=None):
         name="나라장터", group="나라장터", ministry="나라장터", type=source_type,
         url="https://www.g2b.go.kr/",
         notice_type=NOTICE_TYPE_MAIN if source_type == "api_g2b_bid" else NOTICE_TYPE_PRE,
-        options=options or {"operations": ["용역"]})
+        options=options or {"operations": ["용역"], "page_size": 100})
     session, sleeps = FakeSession(responder), []
     secrets = {"DATA_GO_KR_KEY": KEY} if secrets is None else secrets
     http = HttpClient(secrets=[KEY], session=session, sleep=sleeps.append)

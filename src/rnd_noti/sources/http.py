@@ -51,6 +51,13 @@ def moved_to(requested: str, resp: Any) -> str | None:
     return None
 
 
+def _body_hint(resp: Any, secrets: Iterable[str]) -> str:
+    """오류 응답에 서버가 적어 보낸 짧은 설명(예: Forbidden)을 덧붙인다. 원인 파악용."""
+    text = re.sub(r"<[^>]+>", " ", str(getattr(resp, "text", "") or ""))
+    text = " ".join(text.split())[:120]
+    return f" · 서버가 보낸 내용: {mask(text, secrets)}" if text else ""
+
+
 class HttpClient:
     def __init__(
         self,
@@ -71,6 +78,7 @@ class HttpClient:
         self._sleep = sleep
         self._called = False
         self.moved: dict[str, str] = {}      # 요청 주소 → 옮겨 간 새 주소
+        self.calls = 0                       # 실제로 보낸 요청 수 (API 하루 한도 확인용)
 
     def get(self, url: str, params: dict[str, Any] | None = None) -> requests.Response:
         return self._request("get", url, params=params)
@@ -86,13 +94,15 @@ class HttpClient:
             if self._called:
                 self._sleep(self.delay * (attempt if attempt > 1 else 1))
             self._called = True
+            self.calls += 1
             try:
                 resp = getattr(self.session, method)(url, timeout=self.timeout, **kwargs)
                 if resp.status_code >= 500 or resp.status_code == 429:
                     last_error = f"서버 응답 {resp.status_code}"
                     continue
                 if resp.status_code >= 400:
-                    raise SourceError(f"서버 응답 {resp.status_code} (접속 거부 또는 주소 오류)")
+                    raise SourceError(f"서버 응답 {resp.status_code} (접속 거부 또는 주소 오류)"
+                                      + _body_hint(resp, self.secrets))
                 new = moved_to(url, resp)
                 if new:
                     self.moved[url.split("?")[0]] = new

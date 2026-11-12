@@ -11,12 +11,15 @@
 # type: api_g2b_bid | api_g2b_prespec | generic_board | custom:<이름>
 # generic_board의 selectors/options 설명은 src/rnd_noti/sources/generic_board.py 맨 위에 있습니다.
 # note: 사람이 읽는 메모 (출처 점검 결과에 함께 표시)
+# manual_check: true = 꺼 둔(enabled: false) 출처를 주간 메일의 '직접 확인할 출처'에 링크로 싣습니다.
+#                다른 출처로 대체되는 곳(IITP·NTIS 등)에는 넣지 않습니다
 #
 # 마지막 점검: 2026-11-11 (한국 IP에서 확인. 해외 IP인 GitHub Actions에서의 결과는 출처 점검 모드로 확인)
 
 # ───────────── 나라장터 (공공데이터포털 API) ─────────────
 # options.operations = 조회할 업무구분 (용역 | 물품 | 공사 | 외자)
 # options.base_url  = API 주소가 바뀌었을 때만 적습니다 (비우면 기본 주소)
+# options.page_size = 한 번에 받는 건수 (기본 500, 최대 999). 응답이 느려 실패하면 줄입니다
 - id: g2b_bid
   name: 나라장터 입찰공고
   group: 나라장터
@@ -121,6 +124,7 @@
   category: 바우처
   ministry: 과학기술정보통신부
   enabled: false        # 단기 사업. 종료되면 계속 false
+  manual_check: true    # 메일의 '직접 확인할 출처'에 링크로 표시
   type: generic_board
   url: https://aiinfrahub.kr/project
   notice_type: 본공고
@@ -186,6 +190,7 @@
   category: R&D
   ministry: 과학기술정보통신부
   enabled: false
+  manual_check: true    # 메일의 '직접 확인할 출처'에 링크로 표시
   type: generic_board
   url: https://pcm.etri.re.kr/pcmx/join/anno/annoList.do
   notice_type: 본공고
@@ -324,6 +329,7 @@
   category: 바우처
   ministry: 서울특별시
   enabled: false
+  manual_check: true    # 메일의 '직접 확인할 출처'에 링크로 표시
   note: "목록 데이터 주소가 이 프로그램의 요청을 거부(HTTP 400). 브라우저로 위장하는 우회는 하지 않음. 전용 어댑터는 준비됨"
   type: custom:sba
   url: https://www.sba.seoul.kr/Pages/ContentsMenu/Company_Support.aspx?C=8D010DF4-6777-EC11-80E8-9418827691E2

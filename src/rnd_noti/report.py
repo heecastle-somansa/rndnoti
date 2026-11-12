@@ -75,6 +75,7 @@ class Report:
     sections: list[Section]
     period: str
     failed_sources: list[str] = field(default_factory=list)
+    manual_sources: list[tuple[str, str]] = field(default_factory=list)   # 직접 확인할 출처 (이름, 주소)
 
 
 def dday(item: Item, today: date) -> tuple[str, str, int | None]:
@@ -122,7 +123,8 @@ def _section_order(groups: GroupConfig) -> tuple[list[str], dict[str, str]]:
 
 
 def build_report(items: list[Item], categories: list[str], groups: GroupConfig, today: date,
-                 since: date, until: date, failed_sources: list[str]) -> Report:
+                 since: date, until: date, failed_sources: list[str],
+                 manual_sources: list[tuple[str, str]] | None = None) -> Report:
     order, to_section = _section_order(groups)
     fallback = to_section.get(groups.fallback_group, groups.fallback_group)
     # 큰 구획 = 공고 카테고리(R&D / 입찰 / 바우처), 그 안에서 발주처 그룹별 섹션
@@ -161,6 +163,7 @@ def build_report(items: list[Item], categories: list[str], groups: GroupConfig, 
         subject=subject, week=week, heading=heading, categories=", ".join(categories),
         new_main=new_main, new_pre=new_pre, urgent=urgent, total_new=len(fresh), sections=sections,
         period=f"{since:%Y.%m.%d} ~ {until:%Y.%m.%d}", failed_sources=failed_sources,
+        manual_sources=list(manual_sources or []),
     )
 
 
