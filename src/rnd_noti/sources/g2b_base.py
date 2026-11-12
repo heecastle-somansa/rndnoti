@@ -21,7 +21,7 @@ from .base import SourceAdapter, SourceError
 from .http import HttpClient
 
 KEY_NAME = "DATA_GO_KR_KEY"
-PAGE_SIZE = 100
+PAGE_SIZE = 500              # 한 번에 받는 건수. 클수록 호출 수가 줄어 하루 한도를 아낀다 (options.page_size로 변경)
 MAX_DAYS_PER_QUERY = 7
 
 _ERROR_HINTS = {
@@ -46,6 +46,7 @@ class G2BAdapterBase(SourceAdapter):
         super().__init__(cfg, secrets)
         self.key = self.secrets.get(KEY_NAME, "")
         self.http = http or HttpClient(secrets=[self.key])
+        self.page_size = max(1, min(int(self.cfg.options.get("page_size") or PAGE_SIZE), 999))
 
     # ----- 하위 클래스 구현 -----
     def to_notice(self, item: dict[str, Any]) -> Notice | None:
@@ -66,6 +67,7 @@ class G2BAdapterBase(SourceAdapter):
             raise SourceError(f"인증키({KEY_NAME})가 Secrets에 등록되지 않았습니다")
         base = str(self.cfg.options.get("base_url") or self.BASE_URL).rstrip("/")
         notices: list[Notice] = []
+        op = ""
         try:
             for op in self._operations():
                 for start, end in _split_period(since, until, MAX_DAYS_PER_QUERY):
@@ -75,9 +77,14 @@ class G2BAdapterBase(SourceAdapter):
                             notices.append(notice)
         except SourceError as exc:
             if "403" in str(exc):
+                # 공공데이터포털의 'Forbidden' = 이 인증키로 이 주소의 활용신청 내역을 찾지 못했다는 뜻
                 raise SourceError(
-                    "서버 응답 403: 이 인증키로는 이 API를 쓸 수 없다는 뜻입니다. 공공데이터포털 "
-                    f"[마이페이지 → 활용신청 현황]에서 '{self.SERVICE_NAME}'가 [승인]인지 확인하세요. "
+                    "서버 응답 403(Forbidden): 공공데이터포털이 '이 인증키로는 이 API의 활용신청 내역을 찾지 못했다'고 "
+                    f"답했습니다. 호출한 주소: {base}/{op} · 확인 순서: ① [마이페이지 → 활용신청 현황]에서 "
+                    f"'{self.SERVICE_NAME}'가 [승인]인지 ② 그 상세 화면의 End Point(요청주소)가 위 주소와 같은지"
+                    "(이름이 비슷한 다른 API를 신청한 경우가 많습니다) ③ 상세 화면의 [미리보기]가 포털 안에서 "
+                    "성공하는지 ④ Secrets의 DATA_GO_KR_KEY가 그 신청을 한 계정의 인증키인지. "
+                    "주소가 다르면 sources.yaml의 options.base_url에 포털의 주소를 적으면 됩니다. "
                     "방금 승인됐다면 반영까지 1~2시간 걸릴 수 있습니다") from None
             raise
         return notices
@@ -88,7 +95,7 @@ class G2BAdapterBase(SourceAdapter):
             params = {
                 "serviceKey": self.key,
                 "pageNo": page,
-                "numOfRows": PAGE_SIZE,
+                "numOfRows": self.page_size,
                 "inqryDiv": 1,                                  # 1 = 등록(게시)일시 기준
                 "inqryBgnDt": start.strftime("%Y%m%d") + "0000",
                 "inqryEndDt": end.strftime("%Y%m%d") + "2359",
@@ -97,7 +104,7 @@ class G2BAdapterBase(SourceAdapter):
             resp = self.http.get(url, params)
             items, total = parse_response(resp.text)
             yield from items
-            if not items or page * PAGE_SIZE >= total:
+            if not items or page * self.page_size >= total:
                 return
             page += 1
 

@@ -45,7 +45,8 @@ def build_sample(out_dir: Path) -> list[Path]:
     written = []
     for sub in subs:
         items = select_for_subscriber(pool, seen, sub, cfg.keywords, today)
-        report = build_report(items, sub.categories, cfg.groups, today, since, today, data["failed_sources"])
+        report = build_report(items, sub.categories, cfg.groups, today, since, today, data["failed_sources"],
+                              cfg.manual_sources)
         html, text = render(report)
         for ext, body in (("html", html), ("txt", f"제목: {report.subject}\n\n{text}")):
             path = out_dir / f"preview_{sub.name}.{ext}"

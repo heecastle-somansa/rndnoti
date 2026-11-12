@@ -33,7 +33,8 @@ from .sources.registry import create_adapter
 from .subscribers import SubscriberError, load_subscribers
 
 ROOT = Path(__file__).resolve().parents[2]
-CHECK_DAYS = 30            # 출처 점검 모드의 조회 기간
+CHECK_DAYS = 30            # 출처 점검 모드의 조회 기간 (게시판)
+API_CHECK_DAYS = 7         # 출처 점검 모드의 조회 기간 (나라장터 API: 건수가 많아 하루 호출 한도를 아끼려고 짧게)
 SECRET_KEYS = ("DATA_GO_KR_KEY", "SMTP_PASSWORD", "SMTP_USER", "ADMIN_EMAIL", "MAIL_REPLY_TO")
 
 
@@ -45,6 +46,7 @@ class SourceResult:
     error: str = ""
     warnings: list[str] = field(default_factory=list)   # 성공했지만 확인이 필요한 점 (예: 주소 이동)
     since: date | None = None                            # 이 출처에 실제로 적용한 수집 시작일
+    calls: int = 0                                       # 이 출처에 보낸 요청 수
 
 
 def log(msg: str = "") -> None:
@@ -72,7 +74,8 @@ def mask_in_actions(env: Mapping[str, str]) -> None:
 
 def collect(cfg: AppConfig, env: Mapping[str, str], since: date, until: date,
             include_disabled: bool = False, adapter_factory: Callable = create_adapter,
-            health: Mapping[str, st.SourceHealth] | None = None) -> list[SourceResult]:
+            health: Mapping[str, st.SourceHealth] | None = None,
+            since_for: Callable[[SourceConfig], date] | None = None) -> list[SourceResult]:
     results = []
     health = health or {}
     secrets = _secrets(env)
@@ -82,7 +85,7 @@ def collect(cfg: AppConfig, env: Mapping[str, str], since: date, until: date,
                 results.append(SourceResult(src, "꺼짐", error=src.note))
             continue
         # 지난번에 실패했던 출처는 그때 못 모은 기간부터 다시 모은다(이미 보낸 공고는 seen이 걸러 줌)
-        src_since = st.catch_up_since(since, until, health.get(src.id))
+        src_since = since_for(src) if since_for else st.catch_up_since(since, until, health.get(src.id))
         adapter = None
         try:
             adapter = adapter_factory(src, env)
@@ -94,6 +97,7 @@ def collect(cfg: AppConfig, env: Mapping[str, str], since: date, until: date,
         except Exception as exc:                              # 예상 못 한 오류도 그 출처만 실패 처리
             result = SourceResult(src, "실패", error=mask(f"{type(exc).__name__}: {exc}", secrets)[:300])
         result.since = src_since
+        result.calls = int(getattr(getattr(adapter, "http", None), "calls", 0) or 0)
         moved = getattr(getattr(adapter, "http", None), "moved", None) or {}
         result.warnings = [mask(f"주소가 옮겨졌습니다: {old} → {new} (sources.yaml의 url을 새 주소로 바꿔 주세요)", secrets)
                            for old, new in moved.items()]
@@ -102,10 +106,10 @@ def collect(cfg: AppConfig, env: Mapping[str, str], since: date, until: date,
 
 
 def source_table(results: list[SourceResult]) -> str:
-    lines = ["| 출처 | id | 카테고리 | 결과 | 건수 | 비고 |", "| --- | --- | --- | --- | --- | --- |"]
+    lines = ["| 출처 | id | 카테고리 | 결과 | 건수 | 호출 | 비고 |", "| --- | --- | --- | --- | --- | --- | --- |"]
     for r in results:
         note = " / ".join([r.error or r.source.note, *r.warnings]).strip(" /").replace("|", "/")
-        lines.append(f"| {r.source.name} | {r.source.id} | {r.source.track} | {r.status} | {len(r.notices)} | {note} |")
+        lines.append(f"| {r.source.name} | {r.source.id} | {r.source.track} | {r.status} | {len(r.notices)} | {r.calls} | {note} |")
     return "\n".join(lines)
 
 
@@ -187,7 +191,9 @@ ALERT_FOOTER = ("구독자 메일은 정상 발송했습니다. 실패한 출처
 def run_check_sources(cfg: AppConfig, env, today: date, out_dir: Path, *,
                       adapter_factory=create_adapter, mailer_factory=Mailer) -> int:
     since = today - timedelta(days=CHECK_DAYS)
-    results = collect(cfg, env, since, today, include_disabled=True, adapter_factory=adapter_factory)
+    days_of = lambda s: API_CHECK_DAYS if s.type.startswith("api_") else CHECK_DAYS
+    results = collect(cfg, env, since, today, include_disabled=True, adapter_factory=adapter_factory,
+                      since_for=lambda s: today - timedelta(days=days_of(s)))
     table = source_table(results)
     log(table)
     write_summary(env, "## 출처 점검 결과\n\n" + table)
@@ -195,16 +201,16 @@ def run_check_sources(cfg: AppConfig, env, today: date, out_dir: Path, *,
     rows = [{
         "id": r.source.id, "name": f"[{r.source.track}] {r.source.name}" if r.source.track else r.source.name,
         "status": r.status, "color": color[r.status],
-        "count": len(r.notices),
+        "count": len(r.notices), "calls": r.calls,
         "reason": " / ".join([r.error, *r.warnings] + (
-            [f"최근 {CHECK_DAYS}일간 새 글이 없습니다. 게시판이 다른 주소로 옮겨졌는지 확인해 보세요"]
+            [f"최근 {days_of(r.source)}일간 새 글이 없습니다. 게시판이 다른 주소로 옮겨졌는지 확인해 보세요"]
             if r.status == "성공" and not r.notices else [])).strip(" /"),
         "recent": [f"{n.posted_at or ''} {n.title}" for n in
                    sorted(r.notices, key=lambda n: n.posted_at or date.min, reverse=True)[:3]],
     } for r in results]
     count = {s: sum(1 for r in results if r.status == s) for s in color}
     subject = f"[R&D Noti] 출처 점검 — 성공 {count['성공']}, 실패 {count['실패']}, 꺼짐 {count['꺼짐']}"
-    html = render_named("check_sources.html", subject=subject, rows=rows, period=f"{since} ~ {today}",
+    html = render_named("check_sources.html", subject=subject, rows=rows, period=f"{since} ~ {today} (나라장터 API는 최근 {API_CHECK_DAYS}일)",
                         ok=count["성공"], failed=count["실패"], off=count["꺼짐"])
     out_dir.mkdir(parents=True, exist_ok=True)
     (out_dir / "check_sources.html").write_text(html, encoding="utf-8")
@@ -265,7 +271,7 @@ def run_weekly(cfg: AppConfig, env, today: date, out_dir: Path, state_dir: Path,
     outgoing: list[tuple[Subscriber, list[Item], str, str, str]] = []
     for sub in subs:
         items = select_for_subscriber(pool, seen, sub, cfg.keywords, today)
-        report = build_report(items, sub.categories, cfg.groups, today, since, until, failed)
+        report = build_report(items, sub.categories, cfg.groups, today, since, until, failed, cfg.manual_sources)
         html, text = render(report)
         outgoing.append((sub, items, report.subject, html, text))
         log(f"- {sub.name}: {report.subject}")

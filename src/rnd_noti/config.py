@@ -94,6 +94,7 @@ class SourceConfig:
     selectors: dict[str, str] = field(default_factory=dict)
     options: dict[str, Any] = field(default_factory=dict)   # 어댑터별 추가 설정
     note: str = ""                                          # 사람이 읽는 메모
+    manual_check: bool = False                              # 꺼 둔 출처를 메일의 "직접 확인할 출처"에 링크로 싣는다
 
 
 @dataclass(frozen=True)
@@ -105,6 +106,11 @@ class AppConfig:
     @property
     def enabled_sources(self) -> list[SourceConfig]:
         return [s for s in self.sources if s.enabled]
+
+    @property
+    def manual_sources(self) -> list[tuple[str, str]]:
+        """자동 수집을 꺼 두었지만 사람이 직접 확인할 출처의 (이름, 주소)."""
+        return [(s.name, s.url) for s in self.sources if not s.enabled and s.manual_check and s.url]
 
 
 # ---------- 읽기 ----------
@@ -201,7 +207,7 @@ def load_groups(path: Path | None = None) -> GroupConfig:
 
 
 _SOURCE_KEYS = {"id", "name", "group", "category", "ministry", "enabled", "type", "url",
-                "notice_type", "title_filter", "selectors", "options", "note"}
+                "notice_type", "title_filter", "selectors", "options", "note", "manual_check"}
 
 
 def load_sources(path: Path | None = None, groups: GroupConfig | None = None) -> tuple[SourceConfig, ...]:
@@ -245,6 +251,9 @@ def load_sources(path: Path | None = None, groups: GroupConfig | None = None) ->
         enabled = item.get("enabled", True)
         if not isinstance(enabled, bool):
             raise ConfigError(f"{where}: enabled는 true 또는 false여야 합니다")
+        manual_check = item.get("manual_check", False)
+        if not isinstance(manual_check, bool):
+            raise ConfigError(f"{where}: manual_check는 true 또는 false여야 합니다")
         selectors = item.get("selectors") or {}
         if not isinstance(selectors, dict):
             raise ConfigError(f"{where}: selectors 형식이 잘못됐습니다")
@@ -258,6 +267,7 @@ def load_sources(path: Path | None = None, groups: GroupConfig | None = None) ->
             selectors={str(k): str(v) for k, v in selectors.items()},
             options=dict(item.get("options") or {}),
             note=str(item.get("note") or ""),
+            manual_check=manual_check,
         ))
     return tuple(sources)
 
