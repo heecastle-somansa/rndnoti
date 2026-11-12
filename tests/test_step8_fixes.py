@@ -22,7 +22,7 @@ def test_403_shows_called_address_and_portal_message_without_key():
     with pytest.raises(SourceError) as exc:
         G2BBidAdapter(BID, {"DATA_GO_KR_KEY": "KEY123"}, http=http).fetch(TODAY, TODAY)
     msg = str(exc.value)
-    assert "/1230000/ad/BidPublicInfoService/getBidPblancListInfoServc" in msg
+    assert "/1230000/ad/BidPublicInfoService02/getBidPblancListInfoServc" in msg
     assert "End Point" in msg and "KEY123" not in msg
 
 
@@ -67,3 +67,20 @@ def test_manual_sources_shown_in_mail_only_when_present():
     assert "직접 확인할 출처" in text and "https://www.sba.seoul.kr/x" in text
     html2, text2 = render(build_report([], ["보안 일반"], CFG.groups, TODAY, TODAY, TODAY, []))
     assert "직접 확인할 출처" not in html2 and "직접 확인할 출처" not in text2
+
+
+def test_operation_names_can_be_overridden_and_404_explains():
+    urls = []
+    http, _ = fake_http(lambda m, u, kw: (urls.append(u), FakeResp("API not found", 404))[1])
+    cfg = SourceConfig(id="g2b_bid", name="x", group="나라장터", type="api_g2b_bid",
+                       options={"operations": ["용역"], "operation_names": {"용역": "newOp"}})
+    with pytest.raises(SourceError, match="operation_names"):
+        G2BBidAdapter(cfg, {"DATA_GO_KR_KEY": "K"}, http=http).fetch(TODAY, TODAY)
+    assert urls[0].endswith("/BidPublicInfoService02/newOp")
+
+
+def test_changed_response_fields_are_reported_not_silently_empty():
+    body = '{"response": {"header": {"resultCode": "00"}, "body": {"items": [{"newNo": "1", "newNm": "a"}], "totalCount": 1}}}'
+    http, _ = fake_http(lambda m, u, kw: FakeResp(body))
+    with pytest.raises(SourceError, match="newNo"):
+        G2BBidAdapter(BID, {"DATA_GO_KR_KEY": "K"}, http=http).fetch(TODAY, TODAY)

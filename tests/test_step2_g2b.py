@@ -64,7 +64,7 @@ def test_bid_all_pages_and_mapping():
     notices = adapter.fetch(date(2026, 11, 9), date(2026, 11, 11))
 
     assert [c[1]["pageNo"] for c in session.calls] == [1, 2]          # 모든 페이지 순회
-    assert session.calls[0][0].endswith("/BidPublicInfoService/getBidPblancListInfoServc")
+    assert session.calls[0][0].endswith("/BidPublicInfoService02/getBidPblancListInfoServc")
     p = session.calls[0][1]
     assert (p["inqryBgnDt"], p["inqryEndDt"], p["serviceKey"]) == ("202611090000", "202611112359", KEY)
     assert sleeps == [0.5]                                             # 호출 간 0.5초

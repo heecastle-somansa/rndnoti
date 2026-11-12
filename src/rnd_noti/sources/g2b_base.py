@@ -60,7 +60,9 @@ class G2BAdapterBase(SourceAdapter):
             raise SourceError(
                 f"options.operations에 알 수 없는 업무구분: {', '.join(unknown)} "
                 f"(가능: {', '.join(self.OPERATIONS)})")
-        return [self.OPERATIONS[n] for n in names]
+        # options.operation_names = {용역: 새이름} : 포털에서 기능(오퍼레이션) 이름이 바뀌었을 때 코드 수정 없이 덮어쓴다
+        renamed = self.cfg.options.get("operation_names") or {}
+        return [str(renamed.get(n) or self.OPERATIONS[n]) for n in names]
 
     def fetch(self, since: date, until: date) -> list[Notice]:
         if not self.key:
@@ -68,14 +70,22 @@ class G2BAdapterBase(SourceAdapter):
         base = str(self.cfg.options.get("base_url") or self.BASE_URL).rstrip("/")
         notices: list[Notice] = []
         op = ""
+        raw_count, sample_keys = 0, ""
         try:
             for op in self._operations():
                 for start, end in _split_period(since, until, MAX_DAYS_PER_QUERY):
                     for item in self._iter_items(f"{base}/{op}", start, end):
+                        raw_count += 1
+                        sample_keys = sample_keys or ", ".join(list(item)[:12])
                         notice = self.to_notice(item)
                         if notice is not None:
                             notices.append(notice)
         except SourceError as exc:
+            if "404" in str(exc):
+                raise SourceError(
+                    f"서버 응답 404: 호출한 주소가 없습니다: {base}/{op} · 포털의 API 상세 화면에서 기능별 "
+                    "'요청주소'를 확인해, 주소 앞부분이 다르면 sources.yaml의 options.base_url에, 맨 끝 기능 이름이 "
+                    "다르면 options.operation_names(예: {용역: 새이름})에 적어 주세요") from None
             if "403" in str(exc):
                 # 공공데이터포털의 'Forbidden' = 이 인증키로 이 주소의 활용신청 내역을 찾지 못했다는 뜻
                 raise SourceError(
@@ -87,6 +97,10 @@ class G2BAdapterBase(SourceAdapter):
                     "주소가 다르면 sources.yaml의 options.base_url에 포털의 주소를 적으면 됩니다. "
                     "방금 승인됐다면 반영까지 1~2시간 걸릴 수 있습니다") from None
             raise
+        if raw_count and not notices:
+            # 받긴 받았는데 한 건도 읽지 못함 = 응답 항목 이름이 바뀐 것. 조용히 0건으로 넘어가지 않게 알린다
+            raise SourceError(f"{raw_count}건을 받았지만 공고번호·공고명 항목을 찾지 못했습니다(응답 형식 변경 추정). "
+                              f"받은 항목 이름: {sample_keys}")
         return notices
 
     def _iter_items(self, url: str, start: date, end: date) -> Iterator[dict[str, Any]]:
