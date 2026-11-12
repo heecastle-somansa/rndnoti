@@ -64,7 +64,7 @@ def test_bid_all_pages_and_mapping():
     notices = adapter.fetch(date(2026, 11, 9), date(2026, 11, 11))
 
     assert [c[1]["pageNo"] for c in session.calls] == [1, 2]          # 모든 페이지 순회
-    assert session.calls[0][0].endswith("/BidPublicInfoService02/getBidPblancListInfoServc")
+    assert session.calls[0][0].endswith("/BidPublicInfoService02/getBidPblancListInfoServc02")
     p = session.calls[0][1]
     assert (p["inqryBgnDt"], p["inqryEndDt"], p["serviceKey"]) == ("202611090000", "202611112359", KEY)
     assert sleeps == [0.5]                                             # 호출 간 0.5초
@@ -89,7 +89,7 @@ def test_bid_operations_and_period_split():
         options={"operations": ["용역", "물품"]})
     adapter.fetch(date(2026, 10, 20), date(2026, 11, 9))              # 21일 → 7일씩 3구간
     ops = [c[0].rsplit("/", 1)[1] for c in session.calls]
-    assert ops == ["getBidPblancListInfoServc"] * 3 + ["getBidPblancListInfoThng"] * 3
+    assert ops == ["getBidPblancListInfoServc02"] * 3 + ["getBidPblancListInfoThng02"] * 3
     ranges = [(c[1]["inqryBgnDt"][:8], c[1]["inqryEndDt"][:8]) for c in session.calls[:3]]
     assert ranges == [("20261020", "20261026"), ("20261027", "20261102"), ("20261103", "20261109")]
 
@@ -105,7 +105,7 @@ def test_base_url_override_from_config():
         "api_g2b_bid", lambda u, p: FakeResp('{"response":{"header":{"resultCode":"00"},"body":{"items":[]}}}'),
         options={"operations": ["용역"], "base_url": "https://apis.data.go.kr/new/Path/"})
     adapter.fetch(date(2026, 11, 9), date(2026, 11, 9))
-    assert session.calls[0][0] == "https://apis.data.go.kr/new/Path/getBidPblancListInfoServc"
+    assert session.calls[0][0] == "https://apis.data.go.kr/new/Path/getBidPblancListInfoServc02"
 
 
 # ---------- 사전규격 ----------

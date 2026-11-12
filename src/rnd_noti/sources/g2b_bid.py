@@ -16,13 +16,13 @@ from .registry import register
 @register("api_g2b_bid")
 class G2BBidAdapter(G2BAdapterBase):
     SERVICE_NAME = "조달청_나라장터 입찰공고정보서비스"
-    # 2026-11 확인: 공공데이터포털 활용신청 상세 화면의 End Point가 ...Service02로 바뀌어 있음(옛 주소는 403)
+    # 조달청 2026-11-03 공지: 서비스 주소와 기능(오퍼레이션) 이름 끝에 모두 '02'가 붙었다. 옛 주소는 공지 후 90일까지만 유지
     BASE_URL = "https://apis.data.go.kr/1230000/ad/BidPublicInfoService02"
     OPERATIONS = {
-        "용역": "getBidPblancListInfoServc",
-        "물품": "getBidPblancListInfoThng",
-        "공사": "getBidPblancListInfoCnstwk",
-        "외자": "getBidPblancListInfoFrgcpt",
+        "용역": "getBidPblancListInfoServc02",
+        "물품": "getBidPblancListInfoThng02",
+        "공사": "getBidPblancListInfoCnstwk02",
+        "외자": "getBidPblancListInfoFrgcpt02",
     }
 
     def to_notice(self, item: dict[str, Any]) -> Notice | None:

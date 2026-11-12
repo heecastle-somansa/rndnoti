@@ -22,7 +22,7 @@ def test_403_shows_called_address_and_portal_message_without_key():
     with pytest.raises(SourceError) as exc:
         G2BBidAdapter(BID, {"DATA_GO_KR_KEY": "KEY123"}, http=http).fetch(TODAY, TODAY)
     msg = str(exc.value)
-    assert "/1230000/ad/BidPublicInfoService02/getBidPblancListInfoServc" in msg
+    assert "/1230000/ad/BidPublicInfoService02/getBidPblancListInfoServc02" in msg
     assert "End Point" in msg and "KEY123" not in msg
 
 
