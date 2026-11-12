@@ -32,6 +32,7 @@ class Subscriber:
     active: bool = True
     sources: list[str] = field(default_factory=list)          # 비어 있으면 전체
     exclude_sources: list[str] = field(default_factory=list)
+    regions: list[str] = field(default_factory=list)      # 지역 공고는 이 지역만 (비면 전체)
     tracks: list[str] = field(default_factory=list)           # 받을 공고 카테고리 (비어 있으면 전체)
 
     def wants_track(self, track: str) -> bool:
@@ -98,8 +99,44 @@ def dedupe_cross_source(notices: list[Notice], portal_sources: set[str],
 
 # ---------- 4) 키워드 매칭 ----------
 
-def contains_any(title_norm: str, words: tuple[str, ...]) -> list[str]:
-    return [w for w in words if norm(w) and norm(w) in title_norm]
+_ASCII_WORD = re.compile(r"^[a-z0-9]+$")
+
+
+def _hit(title_norm: str, title_lower: str, word: str) -> bool:
+    w = norm(word)
+    if not w:
+        return False
+    if _ASCII_WORD.match(w):
+        # 영문·숫자 키워드는 단어 단위로만 찾는다: EDR이 'AutomatED Rotary'·'BEDRock'에 걸리지 않게.
+        # 한글과 붙어 있는 경우(APT시스템, 가상PC(VDI))는 그대로 매칭된다
+        return re.search(rf"(?<![a-z0-9]){re.escape(w)}(?![a-z0-9])", title_lower) is not None
+    return w in title_norm
+
+
+def contains_any(title_norm: str, words: tuple[str, ...], title_lower: str | None = None) -> list[str]:
+    lower = title_lower if title_lower is not None else title_norm
+    return [w for w in words if _hit(title_norm, lower, w)]
+
+
+# 기업마당 등 지역 공고의 제목 앞 [지역] 표기
+REGIONS = ("서울", "부산", "대구", "인천", "광주", "대전", "울산", "세종", "경기", "강원",
+           "충북", "충남", "전북", "전남", "경북", "경남", "제주")
+_REGION_TAG = re.compile(r"^\s*[\[(【]\s*([^\]\)】]+?)\s*[\])】]")
+
+
+def region_of(title: str) -> str | None:
+    """제목 앞 [지역] 태그가 있으면 그 지역 이름, 없으면 None (전국 공고)."""
+    m = _REGION_TAG.match(title or "")
+    if m and any(m.group(1).startswith(r) for r in REGIONS):
+        return m.group(1)
+    return None
+
+
+def region_ok(title: str, regions: list[str]) -> bool:
+    if not regions:
+        return True
+    tag = region_of(title)
+    return tag is None or any(r in tag for r in regions)
 
 
 def match_categories(title: str, chosen: list[str], kw: KeywordConfig,
@@ -108,17 +145,19 @@ def match_categories(title: str, chosen: list[str], kw: KeywordConfig,
 
     분류에 only_in이 있으면 그 공고 카테고리의 공고에만 적용한다(예: '바우처·인프라 지원'은 바우처 공고에만).
     """
-    t = norm(title)
-    if contains_any(t, kw.exclude):
+    t, low = norm(title), (title or "").lower()
+    if contains_any(t, kw.exclude, low):
         return {}
     matched: dict[str, list[str]] = {}
     for name in chosen:
         cat = kw.categories.get(name)
-        if cat is None or contains_any(t, cat.exclude):
+        if cat is None or contains_any(t, cat.exclude, low):
             continue
         if cat.only_in and track is not None and track not in cat.only_in:
             continue
-        hits = contains_any(t, cat.keywords)
+        if cat.require and not contains_any(t, cat.require, low):
+            continue
+        hits = contains_any(t, cat.keywords, low)
         if hits:
             matched[name] = hits
     return matched
@@ -141,7 +180,7 @@ def select_for_subscriber(
     items: list[Item] = []
     taken: set[str] = set()
     for n in pool:
-        if not sub.wants_source(n.source) or not sub.wants_track(n.track):
+        if not sub.wants_source(n.source) or not sub.wants_track(n.track) or not region_ok(n.title, sub.regions):
             continue
         kind = classify_against_seen(n, seen)
         if kind is None:
@@ -156,7 +195,7 @@ def select_for_subscriber(
         n = entry.notice
         if uid in taken or not n.deadline or not (today <= n.deadline <= limit):
             continue
-        if not sub.wants_source(n.source) or not sub.wants_track(n.track):
+        if not sub.wants_source(n.source) or not sub.wants_track(n.track) or not region_ok(n.title, sub.regions):
             continue
         matched = match_categories(n.title, sub.categories, kw, n.track)
         if matched:
