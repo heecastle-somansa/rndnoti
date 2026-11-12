@@ -232,6 +232,21 @@ def _subscribers(cfg: AppConfig, env, dry_run: bool) -> list[Subscriber]:
     return subs
 
 
+def log_match_detail(name: str, items: list[Item]) -> None:
+    """미리보기 모드에서 키워드 점검용: 어떤 공고가 어떤 키워드로 걸렸는지와 키워드별 건수를 로그에 남긴다."""
+    counts: dict[str, int] = {}
+    log(f"::group::매칭 상세 — {name} ({len(items)}건)")
+    for it in items:
+        n = it.notice
+        hits = [f"{c}:{w}" for c, ws in n.matched.items() for w in ws]
+        for h in hits:
+            counts[h] = counts.get(h, 0) + 1
+        log(f"MATCH\t{n.source}\t{' / '.join(hits)}\t{n.title}\t{n.org}")
+    for h, c in sorted(counts.items(), key=lambda x: -x[1]):
+        log(f"KWCOUNT\t{c}\t{h}")
+    log("::endgroup::")
+
+
 def run_weekly(cfg: AppConfig, env, today: date, out_dir: Path, state_dir: Path, *, dry_run: bool,
                adapter_factory=create_adapter, mailer_factory=Mailer) -> int:
     last_run = st.load_last_run(state_dir / "last_run.json")
@@ -275,6 +290,8 @@ def run_weekly(cfg: AppConfig, env, today: date, out_dir: Path, state_dir: Path,
         html, text = render(report)
         outgoing.append((sub, items, report.subject, html, text))
         log(f"- {sub.name}: {report.subject}")
+        if dry_run:
+            log_match_detail(sub.name, items)
 
     if dry_run:
         out_dir.mkdir(parents=True, exist_ok=True)
